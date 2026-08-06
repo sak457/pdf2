@@ -1,0 +1,396 @@
+Date,Direction,Account_No,Sender,Sender_Type,Beneficiary,Beneficiary_Type,Amount,Transaction_Method
+2025-06-04,IN,AC-7745-1120,Elena Petrova,Person,Me,Person,4156.81,Cheque
+2025-06-05,OUT,AC-4021-8837,Me,Person,Me,Person,3131.92,Withdrawal
+2025-06-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2025-06-06,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,1254.59,Transfer
+2025-06-07,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,576.87,Transfer
+2025-06-07,OUT,AC-4021-8837,Me,Person,Me,Person,1975.08,Withdrawal
+2025-06-07,OUT,AC-4021-8837,Me,Person,Me,Person,2005.12,Withdrawal
+2025-06-07,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,290.04,Transfer
+2025-06-07,IN,AC-4021-8837,Michael Chen,Person,Me,Person,7187.91,Cheque
+2025-06-08,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,13406.32,Cheque
+2025-06-08,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,97.79,Transfer
+2025-06-08,OUT,AC-4021-8837,Me,Person,Sharaf DG Electronics,Company,472.25,Transfer
+2025-06-08,IN,AC-7745-1120,Falcon Auto Services,Company,Me,Person,23441.96,Cheque
+2025-06-09,OUT,AC-4021-8837,Me,Person,Apple Store Dubai Mall,Company,1207.94,Transfer
+2025-06-10,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1309.39,Transfer
+2025-06-11,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,215.91,Transfer
+2025-06-14,OUT,AC-4021-8837,Me,Person,Carrefour Hypermarket,Company,733.72,Transfer
+2025-06-22,OUT,AC-4021-8837,Me,Person,Noon Marketplace,Company,226.13,Transfer
+2025-06-22,OUT,AC-4021-8837,Me,Person,Amazon.ae,Company,843.99,Transfer
+2025-06-24,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,17547.29,Cheque
+2025-06-26,OUT,AC-4021-8837,Me,Person,Amazon.ae,Company,47.36,Transfer
+2025-06-26,IN,AC-4021-5590,Me,Person,Me,Person,8005.1,Transfer
+2025-06-26,OUT,AC-4021-8837,Me,Person,Me,Person,8542.71,Transfer
+2025-06-26,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,96.76,Transfer
+2025-06-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18810.46,Transfer
+2025-06-27,OUT,AC-9902-3341,Me,Person,Emirates Airlines,Company,51.61,Transfer
+2025-06-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8175.51,Transfer
+2025-06-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5346.57,Transfer
+2025-06-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7136.07,Transfer
+2025-06-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,6241.25,Transfer
+2025-06-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,8893.87,Transfer
+2025-06-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6986.43,Transfer
+2025-06-28,OUT,AC-4021-8837,Me,Person,Apple Store Dubai Mall,Company,692.71,Transfer
+2025-07-01,OUT,AC-9902-3341,Me,Person,IKEA Home Furnishings,Company,491.23,Transfer
+2025-07-01,IN,AC-4021-8837,Sterling Consulting Group,Company,Me,Person,6402.7,Cheque
+2025-07-03,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1293.0,Transfer
+2025-07-03,IN,AC-7745-1120,Al Futtaim Real Estate,Company,Me,Person,19651.13,Cheque
+2025-07-03,OUT,AC-4021-8837,Me,Person,Me,Person,966.38,Withdrawal
+2025-07-04,OUT,AC-9902-3341,Me,Person,Amazon.ae,Company,479.73,Transfer
+2025-07-05,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,214.02,Transfer
+2025-07-05,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,652.33,Transfer
+2025-07-05,OUT,AC-9902-3341,Me,Person,Me,Person,2880.79,Withdrawal
+2025-07-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2025-07-08,OUT,AC-9902-3341,Me,Person,Apple Store Dubai Mall,Company,81.02,Transfer
+2025-07-09,OUT,AC-9902-3341,Me,Person,Apple Store Dubai Mall,Company,176.28,Transfer
+2025-07-11,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,330.25,Transfer
+2025-07-11,IN,AC-7745-1120,Falcon Auto Services,Company,Me,Person,8917.18,Cheque
+2025-07-11,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,15392.03,Transfer
+2025-07-12,OUT,AC-4021-8837,Me,Person,Shell Service Station,Company,53.91,Transfer
+2025-07-14,OUT,AC-4021-8837,Me,Person,Shell Service Station,Company,1101.57,Transfer
+2025-07-20,OUT,AC-9902-3341,Me,Person,Shell Service Station,Company,73.52,Transfer
+2025-07-24,OUT,AC-4021-8837,Me,Person,Sharaf DG Electronics,Company,542.41,Transfer
+2025-07-25,OUT,AC-9902-3341,Me,Person,Noon Marketplace,Company,88.57,Transfer
+2025-07-27,OUT,AC-9902-3341,Me,Person,Amazon.ae,Company,626.75,Transfer
+2025-07-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18166.39,Transfer
+2025-07-27,OUT,AC-4021-8837,Me,Person,Sharaf DG Electronics,Company,1351.51,Transfer
+2025-07-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7306.82,Transfer
+2025-07-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,6161.2,Transfer
+2025-07-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,9041.28,Transfer
+2025-07-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6599.93,Transfer
+2025-07-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8364.65,Transfer
+2025-07-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5243.14,Transfer
+2025-08-03,OUT,AC-9902-3341,Me,Person,Emirates Airlines,Company,895.26,Transfer
+2025-08-03,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,291.85,Transfer
+2025-08-04,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,620.61,Transfer
+2025-08-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2025-08-06,OUT,AC-4021-8837,Me,Person,Spinneys Supermarket,Company,199.15,Transfer
+2025-08-07,IN,AC-4021-8837,Hassan Aziz,Person,Me,Person,3385.63,Cheque
+2025-08-08,IN,AC-7745-1120,Blue Harbor Trading LLC,Company,Me,Person,12627.83,Cheque
+2025-08-08,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,216.37,Transfer
+2025-08-08,IN,AC-4021-5590,Me,Person,Me,Person,3451.92,Transfer
+2025-08-08,OUT,AC-4021-8837,Me,Person,Me,Person,3164.89,Transfer
+2025-08-09,OUT,AC-4021-8837,Me,Person,Me,Person,513.05,Withdrawal
+2025-08-11,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,531.11,Transfer
+2025-08-11,OUT,AC-4021-8837,Me,Person,Spinneys Supermarket,Company,51.24,Transfer
+2025-08-11,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1408.08,Transfer
+2025-08-11,IN,AC-4021-8837,Amira Saleh,Person,Me,Person,2862.19,Cheque
+2025-08-12,OUT,AC-9902-3341,Me,Person,Apple Store Dubai Mall,Company,50.85,Transfer
+2025-08-13,OUT,AC-9902-3341,Me,Person,Carrefour Hypermarket,Company,42.92,Transfer
+2025-08-14,OUT,AC-9902-3341,Me,Person,Me,Person,517.31,Withdrawal
+2025-08-14,OUT,AC-9902-3341,Me,Person,Spinneys Supermarket,Company,921.35,Transfer
+2025-08-14,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,24250.6,Transfer
+2025-08-17,IN,AC-7745-1120,Michael Chen,Person,Me,Person,7062.58,Cheque
+2025-08-19,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,25030.96,Transfer
+2025-08-25,OUT,AC-9902-3341,Me,Person,Spinneys Supermarket,Company,1085.15,Transfer
+2025-08-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18296.8,Transfer
+2025-08-27,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,380.93,Transfer
+2025-08-27,OUT,AC-9902-3341,Me,Person,Sharaf DG Electronics,Company,213.38,Transfer
+2025-08-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6840.81,Transfer
+2025-08-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5383.36,Transfer
+2025-08-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8410.44,Transfer
+2025-08-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,6278.39,Transfer
+2025-08-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7176.46,Transfer
+2025-08-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,8905.63,Transfer
+2025-09-01,IN,AC-4021-8837,Al Futtaim Real Estate,Company,Me,Person,3471.29,Cheque
+2025-09-03,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,19022.95,Cheque
+2025-09-05,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,322.53,Transfer
+2025-09-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2025-09-08,OUT,AC-9902-3341,Me,Person,Me,Person,521.8,Withdrawal
+2025-09-08,IN,AC-4021-8837,Amira Saleh,Person,Me,Person,9450.0,Cheque
+2025-09-09,OUT,AC-4021-8837,Me,Person,Shell Service Station,Company,70.46,Transfer
+2025-09-09,IN,AC-4021-8837,Fatima Al-Zahra,Person,Me,Person,9100.0,Cheque
+2025-09-10,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,680.7,Transfer
+2025-09-10,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1502.94,Transfer
+2025-09-10,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,214.65,Transfer
+2025-09-10,IN,AC-4021-8837,Hassan Aziz,Person,Me,Person,9100.0,Cheque
+2025-09-11,OUT,AC-4021-8837,Me,Person,Me,Person,3431.64,Transfer
+2025-09-11,IN,AC-7745-1120,Sterling Consulting Group,Company,Me,Person,6410.3,Transfer
+2025-09-11,IN,AC-4021-5590,Me,Person,Me,Person,3808.96,Transfer
+2025-09-11,IN,AC-4021-8837,Hassan Aziz,Person,Me,Person,9200.0,Cheque
+2025-09-12,IN,AC-4021-8837,Rajesh Menon,Person,Me,Person,9100.0,Cheque
+2025-09-13,OUT,AC-4021-8837,Me,Person,Noon Marketplace,Company,560.33,Transfer
+2025-09-13,IN,AC-4021-8837,Sophia Rossi,Person,Me,Person,9600.0,Cheque
+2025-09-14,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,24386.35,Cheque
+2025-09-15,OUT,AC-4021-8837,Me,Person,Me,Person,486.61,Withdrawal
+2025-09-17,OUT,AC-4021-8837,Me,Person,Sharaf DG Electronics,Company,46.92,Transfer
+2025-09-17,OUT,AC-9902-3341,Me,Person,Apple Store Dubai Mall,Company,313.77,Transfer
+2025-09-18,OUT,AC-4021-8837,Me,Person,Shell Service Station,Company,236.79,Transfer
+2025-09-22,OUT,AC-4021-8837,Me,Person,Apple Store Dubai Mall,Company,57.29,Transfer
+2025-09-23,IN,AC-7745-1120,Al Futtaim Real Estate,Company,Me,Person,20132.24,Cheque
+2025-09-25,OUT,AC-9902-3341,Me,Person,Sharaf DG Electronics,Company,1185.44,Transfer
+2025-09-26,OUT,AC-9902-3341,Me,Person,Emirates Airlines,Company,226.93,Transfer
+2025-09-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18703.55,Transfer
+2025-09-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7014.62,Transfer
+2025-09-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8325.24,Transfer
+2025-09-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5427.74,Transfer
+2025-09-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6656.68,Transfer
+2025-09-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,9312.98,Transfer
+2025-09-28,OUT,AC-4021-8837,Me,Person,Amazon.ae,Company,214.39,Transfer
+2025-09-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,6084.86,Transfer
+2025-10-03,OUT,AC-9902-3341,Me,Person,Sharaf DG Electronics,Company,367.52,Transfer
+2025-10-04,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,18045.84,Cheque
+2025-10-05,OUT,AC-4021-8837,Me,Person,Noon Marketplace,Company,280.44,Transfer
+2025-10-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2025-10-05,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1305.25,Transfer
+2025-10-06,IN,AC-7745-1120,Falcon Auto Services,Company,Me,Person,17026.55,Cheque
+2025-10-07,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,344.44,Transfer
+2025-10-09,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,225.79,Transfer
+2025-10-12,OUT,AC-9902-3341,Me,Person,Me,Person,2066.11,Withdrawal
+2025-10-12,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,656.19,Transfer
+2025-10-12,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,20196.02,Transfer
+2025-10-17,IN,AC-7745-1120,Falcon Auto Services,Company,Me,Person,2471.92,Cheque
+2025-10-17,OUT,AC-9902-3341,Me,Person,Carrefour Hypermarket,Company,684.47,Transfer
+2025-10-17,OUT,AC-4021-8837,Me,Person,IKEA Home Furnishings,Company,209.32,Transfer
+2025-10-21,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,51.78,Transfer
+2025-10-24,OUT,AC-9902-3341,Me,Person,Me,Person,1470.61,Withdrawal
+2025-10-24,OUT,AC-4021-8837,Me,Person,Sharaf DG Electronics,Company,230.49,Transfer
+2025-10-25,OUT,AC-9902-3341,Me,Person,Apple Store Dubai Mall,Company,636.88,Transfer
+2025-10-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18364.49,Transfer
+2025-10-27,OUT,AC-4021-8837,Me,Person,Carrefour Hypermarket,Company,83.0,Transfer
+2025-10-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8388.31,Transfer
+2025-10-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,6186.2,Transfer
+2025-10-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5308.1,Transfer
+2025-10-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7244.73,Transfer
+2025-10-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6758.13,Transfer
+2025-10-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,9286.13,Transfer
+2025-10-28,OUT,AC-4021-8837,Me,Person,Sharaf DG Electronics,Company,312.61,Transfer
+2025-11-01,OUT,AC-4021-8837,Me,Person,Me,Person,503.01,Withdrawal
+2025-11-04,IN,AC-7745-1120,Rami Fakhoury,Person,Me,Person,2700.0,Transfer
+2025-11-04,IN,AC-7745-1120,Joseph Mbeki,Person,Me,Person,3100.0,Transfer
+2025-11-04,IN,AC-7745-1120,Kareem Idris,Person,Me,Person,2700.0,Transfer
+2025-11-05,IN,AC-7745-1120,Farhan Malik,Person,Me,Person,3300.0,Transfer
+2025-11-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2025-11-05,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,20141.72,Cheque
+2025-11-06,IN,AC-7745-1120,Sana Iqbal,Person,Me,Person,2700.0,Transfer
+2025-11-06,IN,AC-7745-1120,Nadia Kamal,Person,Me,Person,3100.0,Transfer
+2025-11-07,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,297.19,Transfer
+2025-11-08,IN,AC-7745-1120,Dana Levy,Person,Me,Person,3100.0,Transfer
+2025-11-08,IN,AC-7745-1120,Bilal Shah,Person,Me,Person,2700.0,Transfer
+2025-11-09,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1366.65,Transfer
+2025-11-10,OUT,AC-7745-1120,Me,Person,Crescent Bay Holdings Ltd,Company,13400.0,Transfer
+2025-11-10,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,629.51,Transfer
+2025-11-11,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,231.26,Transfer
+2025-11-11,OUT,AC-7745-1120,Me,Person,Crescent Bay Holdings Ltd,Company,11900.0,Transfer
+2025-11-13,OUT,AC-4021-8837,Me,Person,Noon Marketplace,Company,1208.4,Transfer
+2025-11-14,IN,AC-7745-1120,Falcon Auto Services,Company,Me,Person,24176.31,Transfer
+2025-11-14,OUT,AC-9902-3341,Me,Person,Noon Marketplace,Company,1323.77,Transfer
+2025-11-16,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,61.61,Transfer
+2025-11-20,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,264.36,Transfer
+2025-11-21,OUT,AC-4021-8837,Me,Person,Amazon.ae,Company,225.42,Transfer
+2025-11-22,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,18902.65,Transfer
+2025-11-22,OUT,AC-4021-8837,Me,Person,Carrefour Hypermarket,Company,49.42,Transfer
+2025-11-26,OUT,AC-9902-3341,Me,Person,Carrefour Hypermarket,Company,324.77,Transfer
+2025-11-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18842.84,Transfer
+2025-11-27,OUT,AC-4021-8837,Me,Person,Me,Person,522.02,Withdrawal
+2025-11-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7178.71,Transfer
+2025-11-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,6167.87,Transfer
+2025-11-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,9305.46,Transfer
+2025-11-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6610.21,Transfer
+2025-11-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8410.48,Transfer
+2025-11-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5193.59,Transfer
+2025-12-02,OUT,AC-4021-8837,Me,Person,Rami Fakhoury,Person,4500.0,Transfer
+2025-12-03,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,222.07,Transfer
+2025-12-04,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,565.08,Transfer
+2025-12-04,OUT,AC-9902-3341,Me,Person,Noon Marketplace,Company,310.04,Transfer
+2025-12-05,OUT,AC-4021-8837,Me,Person,Shell Service Station,Company,139.92,Transfer
+2025-12-05,OUT,AC-4021-8837,Me,Person,Me,Person,515.87,Withdrawal
+2025-12-05,OUT,AC-4021-8837,Me,Person,Rami Fakhoury,Person,4500.0,Transfer
+2025-12-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2025-12-06,OUT,AC-4021-8837,Me,Person,Shell Service Station,Company,728.34,Transfer
+2025-12-07,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1616.86,Transfer
+2025-12-08,OUT,AC-4021-8837,Me,Person,Rami Fakhoury,Person,4500.0,Transfer
+2025-12-09,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,20699.22,Transfer
+2025-12-09,OUT,AC-4021-8837,Me,Person,Me,Person,2964.95,Withdrawal
+2025-12-09,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,282.36,Transfer
+2025-12-10,IN,AC-4021-8837,Nova Medical Center,Company,Me,Person,7955.42,Cheque
+2025-12-11,OUT,AC-4021-8837,Me,Person,Rami Fakhoury,Person,4500.0,Transfer
+2025-12-14,OUT,AC-4021-8837,Me,Person,Rami Fakhoury,Person,4500.0,Transfer
+2025-12-16,IN,AC-7745-1120,Falcon Auto Services,Company,Me,Person,18239.64,Transfer
+2025-12-17,OUT,AC-4021-8837,Me,Person,Rami Fakhoury,Person,4500.0,Transfer
+2025-12-18,IN,AC-4021-5590,Me,Person,Me,Person,8268.36,Transfer
+2025-12-18,OUT,AC-4021-8837,Me,Person,Me,Person,8322.82,Transfer
+2025-12-21,OUT,AC-9902-3341,Me,Person,Me,Person,1469.57,Withdrawal
+2025-12-23,IN,AC-7745-1120,Amira Saleh,Person,Me,Person,5446.38,Cheque
+2025-12-25,OUT,AC-4021-8837,Me,Person,Apple Store Dubai Mall,Company,248.25,Transfer
+2025-12-26,OUT,AC-4021-8837,Me,Person,Noon Marketplace,Company,54.22,Transfer
+2025-12-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18176.07,Transfer
+2025-12-27,OUT,AC-9902-3341,Me,Person,Emirates Airlines,Company,269.37,Transfer
+2025-12-28,OUT,AC-4021-8837,Me,Person,IKEA Home Furnishings,Company,187.77,Transfer
+2025-12-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6798.06,Transfer
+2025-12-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5416.0,Transfer
+2025-12-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8462.37,Transfer
+2025-12-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,6095.39,Transfer
+2025-12-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7127.01,Transfer
+2025-12-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,8982.39,Transfer
+2026-01-03,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,25078.73,Transfer
+2026-01-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2026-01-05,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,17801.15,Cheque
+2026-01-05,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,225.02,Transfer
+2026-01-06,OUT,AC-4021-8837,Me,Person,Me,Person,3828.76,Transfer
+2026-01-06,IN,AC-4021-5590,Me,Person,Me,Person,3461.53,Transfer
+2026-01-08,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,621.85,Transfer
+2026-01-08,OUT,AC-4021-8837,Me,Person,Me,Person,1027.97,Withdrawal
+2026-01-09,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,1365.29,Transfer
+2026-01-09,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,278.03,Transfer
+2026-01-10,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,230.27,Transfer
+2026-01-10,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1573.95,Transfer
+2026-01-10,OUT,AC-9902-3341,Me,Person,Me,Person,1015.55,Withdrawal
+2026-01-14,IN,AC-9902-3341,Blue Harbor Trading LLC,Company,Me,Person,24500.0,Transfer
+2026-01-14,OUT,AC-9902-3341,Me,Person,IKEA Home Furnishings,Company,341.12,Transfer
+2026-01-15,OUT,AC-4021-8837,Me,Person,Apple Store Dubai Mall,Company,493.83,Transfer
+2026-01-15,OUT,AC-9902-3341,Me,Person,Sterling Consulting Group,Company,24200.0,Transfer
+2026-01-18,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,6276.73,Transfer
+2026-01-20,OUT,AC-4021-8837,Me,Person,Sharaf DG Electronics,Company,659.14,Transfer
+2026-01-21,OUT,AC-4021-8837,Me,Person,Me,Person,483.31,Withdrawal
+2026-01-24,IN,AC-7745-1120,Falcon Auto Services,Company,Me,Person,21565.96,Transfer
+2026-01-24,OUT,AC-9902-3341,Me,Person,Me,Person,997.59,Withdrawal
+2026-01-25,IN,AC-7745-1120,Elena Petrova,Person,Me,Person,2577.61,Cheque
+2026-01-27,OUT,AC-9902-3341,Me,Person,Emirates Airlines,Company,258.71,Transfer
+2026-01-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18338.37,Transfer
+2026-01-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7182.19,Transfer
+2026-01-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8639.48,Transfer
+2026-01-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6792.44,Transfer
+2026-01-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,9142.04,Transfer
+2026-01-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,5979.76,Transfer
+2026-01-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5406.95,Transfer
+2026-02-01,OUT,AC-4021-8837,Me,Person,Amazon.ae,Company,51.27,Transfer
+2026-02-03,OUT,AC-9902-3341,Me,Person,Carrefour Hypermarket,Company,94.36,Transfer
+2026-02-03,OUT,AC-7745-1120,Me,Person,Crescent Bay Holdings Ltd,Company,50000.0,Transfer
+2026-02-04,IN,AC-4021-5590,Me,Person,Me,Person,3690.87,Transfer
+2026-02-04,OUT,AC-4021-8837,Me,Person,Me,Person,3204.85,Transfer
+2026-02-04,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1415.7,Transfer
+2026-02-04,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,712.83,Transfer
+2026-02-05,OUT,AC-4021-8837,Me,Person,Me,Person,478.22,Withdrawal
+2026-02-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2026-02-05,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,209.47,Transfer
+2026-02-06,OUT,AC-9902-3341,Me,Person,Spinneys Supermarket,Company,344.82,Transfer
+2026-02-10,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,335.92,Transfer
+2026-02-10,OUT,AC-9902-3341,Me,Person,Me,Person,498.12,Withdrawal
+2026-02-10,OUT,AC-9902-3341,Me,Person,Shell Service Station,Company,817.74,Transfer
+2026-02-13,IN,AC-7745-1120,Al Futtaim Real Estate,Company,Me,Person,18624.44,Transfer
+2026-02-13,OUT,AC-4021-8837,Me,Person,Noon Marketplace,Company,223.79,Transfer
+2026-02-14,OUT,AC-9902-3341,Me,Person,Carrefour Hypermarket,Company,810.85,Transfer
+2026-02-16,OUT,AC-9902-3341,Me,Person,Spinneys Supermarket,Company,251.64,Transfer
+2026-02-18,IN,AC-7745-1120,Blue Harbor Trading LLC,Company,Me,Person,8384.27,Cheque
+2026-02-18,OUT,AC-7745-1120,Me,Person,Blue Harbor Trading LLC,Company,35000.0,Transfer
+2026-02-18,IN,AC-7745-1120,Al Futtaim Real Estate,Company,Me,Person,17183.95,Transfer
+2026-02-20,OUT,AC-9902-3341,Me,Person,Spinneys Supermarket,Company,45.57,Transfer
+2026-02-20,OUT,AC-4021-8837,Me,Person,Me,Person,3500.0,Withdrawal
+2026-02-21,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,21318.16,Transfer
+2026-02-21,OUT,AC-4021-8837,Me,Person,Me,Person,3500.0,Withdrawal
+2026-02-22,OUT,AC-4021-8837,Me,Person,Me,Person,3000.0,Withdrawal
+2026-02-23,OUT,AC-4021-8837,Me,Person,Me,Person,4000.0,Withdrawal
+2026-02-24,OUT,AC-4021-8837,Me,Person,Me,Person,3000.0,Withdrawal
+2026-02-25,OUT,AC-4021-8837,Me,Person,Me,Person,3500.0,Withdrawal
+2026-02-26,OUT,AC-4021-8837,Me,Person,Me,Person,3500.0,Withdrawal
+2026-02-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18735.9,Transfer
+2026-02-27,OUT,AC-4021-8837,Me,Person,Me,Person,4000.0,Withdrawal
+2026-02-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5287.83,Transfer
+2026-02-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,6276.81,Transfer
+2026-02-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8497.73,Transfer
+2026-02-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7356.06,Transfer
+2026-02-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,9258.41,Transfer
+2026-02-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6749.48,Transfer
+2026-02-28,OUT,AC-4021-8837,Me,Person,Me,Person,4000.0,Withdrawal
+2026-03-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2026-03-06,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1478.68,Transfer
+2026-03-06,OUT,AC-4021-8837,Me,Person,Me,Person,2019.6,Withdrawal
+2026-03-07,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,16663.09,Transfer
+2026-03-08,OUT,AC-4021-8837,Me,Person,IKEA Home Furnishings,Company,225.05,Transfer
+2026-03-08,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,276.64,Transfer
+2026-03-09,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,243.23,Transfer
+2026-03-09,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,664.19,Transfer
+2026-03-09,OUT,AC-7745-1120,Me,Person,Crescent Bay Holdings Ltd,Company,40000.0,Transfer
+2026-03-13,OUT,AC-4021-8837,Me,Person,Apple Store Dubai Mall,Company,131.77,Transfer
+2026-03-13,OUT,AC-9902-3341,Me,Person,Me,Person,1439.3,Withdrawal
+2026-03-15,IN,AC-7745-1120,Sterling Consulting Group,Company,Me,Person,12148.69,Cheque
+2026-03-16,OUT,AC-4021-8837,Me,Person,Shell Service Station,Company,1234.78,Transfer
+2026-03-17,OUT,AC-4021-8837,Me,Person,Me,Person,4987.85,Transfer
+2026-03-17,IN,AC-4021-5590,Me,Person,Me,Person,4898.41,Transfer
+2026-03-18,OUT,AC-9902-3341,Me,Person,Noon Marketplace,Company,1190.5,Transfer
+2026-03-20,OUT,AC-9902-3341,Me,Person,Apple Store Dubai Mall,Company,304.37,Transfer
+2026-03-20,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,18401.38,Cheque
+2026-03-20,OUT,AC-4021-8837,Me,Person,Sterling Consulting Group,Company,15000.0,Transfer
+2026-03-21,OUT,AC-9902-3341,Me,Person,Me,Person,495.32,Withdrawal
+2026-03-21,IN,AC-7745-1120,Greenfield Property Mgmt,Company,Me,Person,16349.8,Transfer
+2026-03-21,OUT,AC-9902-3341,Me,Person,IKEA Home Furnishings,Company,447.7,Transfer
+2026-03-24,IN,AC-7745-1120,Omar Haddad,Person,Me,Person,4933.32,Cheque
+2026-03-24,OUT,AC-7745-1120,Sterling Consulting Group,Company,Blue Harbor Trading LLC,Company,14800.0,Transfer
+2026-03-25,OUT,AC-4021-8837,Me,Person,Noon Marketplace,Company,987.03,Transfer
+2026-03-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18493.65,Transfer
+2026-03-27,OUT,AC-4021-8837,Me,Person,Me,Person,475.9,Withdrawal
+2026-03-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5369.81,Transfer
+2026-03-28,IN,AC-4021-8837,Blue Harbor Trading LLC,Company,Me,Person,14600.0,Transfer
+2026-03-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,8874.77,Transfer
+2026-03-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6941.55,Transfer
+2026-03-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7276.87,Transfer
+2026-03-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,6035.41,Transfer
+2026-03-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8381.14,Transfer
+2026-04-03,OUT,AC-4021-8837,Me,Person,Me,Person,1014.19,Withdrawal
+2026-04-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2026-04-06,OUT,AC-4021-5590,Me,Person,Omar Haddad,Person,7500.0,Transfer
+2026-04-07,OUT,AC-4021-8837,Me,Person,Me,Person,1923.67,Withdrawal
+2026-04-07,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,294.55,Transfer
+2026-04-07,OUT,AC-4021-5590,Me,Person,Elena Petrova,Person,8200.0,Transfer
+2026-04-08,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,682.06,Transfer
+2026-04-08,OUT,AC-9902-3341,Me,Person,Me,Person,2910.64,Withdrawal
+2026-04-08,OUT,AC-4021-8837,Me,Person,Me,Person,8150.7,Transfer
+2026-04-08,IN,AC-4021-5590,Me,Person,Me,Person,7257.91,Transfer
+2026-04-08,OUT,AC-4021-5590,Me,Person,Rajesh Menon,Person,9300.0,Transfer
+2026-04-09,OUT,AC-4021-5590,Me,Person,Priya Sharma,Person,9300.0,Transfer
+2026-04-09,OUT,AC-4021-8837,Me,Person,Emirates Airlines,Company,276.98,Transfer
+2026-04-10,OUT,AC-4021-5590,Me,Person,Sophia Rossi,Person,7500.0,Transfer
+2026-04-11,OUT,AC-9902-3341,Me,Person,Noon Marketplace,Company,1244.55,Transfer
+2026-04-12,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,197.76,Transfer
+2026-04-12,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1527.45,Transfer
+2026-04-13,OUT,AC-9902-3341,Me,Person,Me,Person,1022.48,Withdrawal
+2026-04-14,OUT,AC-4021-8837,Me,Person,Noon Marketplace,Company,64.86,Transfer
+2026-04-18,OUT,AC-9902-3341,Me,Person,Shell Service Station,Company,189.4,Transfer
+2026-04-20,OUT,AC-9902-3341,Me,Person,Sharaf DG Electronics,Company,1257.78,Transfer
+2026-04-20,OUT,AC-9902-3341,Me,Person,Shell Service Station,Company,99.57,Transfer
+2026-04-20,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,15883.35,Transfer
+2026-04-21,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,22831.74,Cheque
+2026-04-24,OUT,AC-4021-8837,Me,Person,Spinneys Supermarket,Company,640.19,Transfer
+2026-04-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18795.24,Transfer
+2026-04-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8155.53,Transfer
+2026-04-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6742.51,Transfer
+2026-04-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,5948.57,Transfer
+2026-04-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7001.03,Transfer
+2026-04-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5228.84,Transfer
+2026-04-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,9185.23,Transfer
+2026-04-28,OUT,AC-4021-8837,Me,Person,Amazon.ae,Company,103.22,Transfer
+2026-05-01,OUT,AC-9902-3341,Me,Person,IKEA Home Furnishings,Company,458.85,Transfer
+2026-05-02,OUT,AC-4021-8837,Me,Person,IKEA Home Furnishings,Company,1150.8,Transfer
+2026-05-05,OUT,AC-4021-8837,Me,Person,Spinneys Supermarket,Company,245.52,Transfer
+2026-05-05,OUT,AC-4021-8837,Me,Person,City Municipality Services,Company,209.61,Transfer
+2026-05-05,OUT,AC-4021-8837,Me,Person,Al Futtaim Real Estate,Company,6500.0,Transfer
+2026-05-05,IN,AC-4021-8837,Falcon Auto Services,Company,Me,Person,4374.84,Cheque
+2026-05-05,OUT,AC-4021-8837,Me,Person,Gulf Power & Water Authority,Company,609.3,Transfer
+2026-05-06,OUT,AC-4021-8837,Me,Person,Me,Person,476.63,Withdrawal
+2026-05-06,OUT,AC-9902-3341,Me,Person,Amazon.ae,Company,289.22,Transfer
+2026-05-07,OUT,AC-4021-8837,Me,Person,Noon Marketplace,Company,308.21,Transfer
+2026-05-08,OUT,AC-9902-3341,Me,Person,IKEA Home Furnishings,Company,313.59,Transfer
+2026-05-10,OUT,AC-4021-8837,Me,Person,Me,Person,5049.26,Transfer
+2026-05-10,OUT,AC-4021-8837,Me,Person,Zenith Insurance Co,Company,1540.18,Transfer
+2026-05-10,OUT,AC-4021-8837,Me,Person,IKEA Home Furnishings,Company,592.09,Transfer
+2026-05-10,IN,AC-4021-5590,Me,Person,Me,Person,5313.64,Transfer
+2026-05-11,IN,AC-7745-1120,Nova Medical Center,Company,Me,Person,20927.18,Cheque
+2026-05-12,IN,AC-7745-1120,Falcon Auto Services,Company,Me,Person,15357.72,Transfer
+2026-05-12,OUT,AC-4021-8837,Me,Person,Etisalat Telecom,Company,307.25,Transfer
+2026-05-15,OUT,AC-4021-8837,Me,Person,IKEA Home Furnishings,Company,111.07,Transfer
+2026-05-15,OUT,AC-4021-8837,Me,Person,Apple Store Dubai Mall,Company,278.68,Transfer
+2026-05-16,OUT,AC-4021-8837,Me,Person,Me,Person,519.76,Withdrawal
+2026-05-16,OUT,AC-4021-8837,Me,Person,Sharaf DG Electronics,Company,49.95,Transfer
+2026-05-18,IN,AC-7745-1120,Falcon Auto Services,Company,Me,Person,6276.43,Cheque
+2026-05-24,OUT,AC-9902-3341,Me,Person,Noon Marketplace,Company,757.97,Transfer
+2026-05-26,OUT,AC-4021-8837,Me,Person,Me,Person,504.22,Withdrawal
+2026-05-27,IN,AC-4021-8837,Meridian Logistics FZE,Company,Me,Person,18235.82,Transfer
+2026-05-28,OUT,AC-7745-1120,Me,Person,Grace Adeyemi,Person,5952.68,Transfer
+2026-05-28,OUT,AC-7745-1120,Me,Person,Tomas Novak,Person,8234.88,Transfer
+2026-05-28,OUT,AC-7745-1120,Me,Person,Victor Silva,Person,6819.88,Transfer
+2026-05-28,OUT,AC-7745-1120,Me,Person,Mei Ling Tan,Person,9191.9,Transfer
+2026-05-28,IN,AC-7745-1120,Blue Harbor Trading LLC,Company,Me,Person,7815.67,Cheque
+2026-05-28,OUT,AC-7745-1120,Me,Person,Nabil Farouk,Person,7194.75,Transfer
+2026-05-28,OUT,AC-7745-1120,Me,Person,Aisha Bello,Person,5206.63,Transfer

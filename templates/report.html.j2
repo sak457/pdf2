@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --bg:#081527; --sheet1:#0b2244; --sheet2:#081426;
+    --card:#0f2645; --card2:#0c1f3b; --panel-b:#22406e;
+    --ink:#e9f0fb; --mute:#93a7c6; --dim:#6981a6; --line:#1e3963;
+    --green:#34d399; --red:#f87171; --blue:#4b8bf5; --teal:#2dd4bf;
+    --amber:#f5b23f; --violet:#a78bfa; --pink:#f472b6;
+    --hi:#f87171; --med:#f5b23f; --lo:#34d399;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:var(--bg);}
+  body{font-family:"DejaVu Sans","Segoe UI",Arial,sans-serif; color:var(--ink);
+       -webkit-font-smoothing:antialiased;}
+  .sheet{
+    width:3200px; position:relative;
+    background:
+      radial-gradient(1200px 700px at 12% -8%, #123a6e 0%, transparent 55%),
+      radial-gradient(1000px 600px at 105% 5%, #0e2c58 0%, transparent 50%),
+      linear-gradient(160deg,var(--sheet1) 0%, var(--sheet2) 65%);
+    padding:30px 34px 34px; overflow:hidden;
+  }
+  .accent-top{position:absolute; top:0; left:0; right:0; height:7px;
+    background:linear-gradient(90deg,var(--red),var(--amber),var(--teal),var(--blue));}
+
+  /* ---- generic panel ---- */
+  .grid{display:grid; grid-template-columns:repeat(12,1fr); gap:14px;}
+  .panel{background:linear-gradient(180deg,var(--card) 0%,var(--card2) 100%);
+    border:1px solid var(--panel-b); border-radius:14px; padding:14px 16px;
+    box-shadow:0 6px 22px rgba(0,0,0,.28); position:relative;}
+  .phead{display:flex; align-items:center; gap:9px; margin-bottom:10px;}
+  .phead .ico{font-size:19px; filter:saturate(1.2);}
+  .phead h3{font-size:15px; font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; color:#dbe6f7;}
+  .phead .tag{margin-left:auto; font-size:11px; color:var(--dim);
+    letter-spacing:.08em; text-transform:uppercase;}
+  .phead::after{content:""; position:absolute; left:16px; right:16px; top:40px;
+    height:1px; background:linear-gradient(90deg,var(--line),transparent);}
+  .subnote{font-size:11px; color:var(--dim); margin-top:2px;}
+
+  /* ---- header ---- */
+  .hdr{display:grid; grid-template-columns:4.3fr 5fr 2.9fr; gap:14px;
+       align-items:stretch; margin-bottom:14px;}
+  .profile{display:flex; gap:14px; align-items:center;}
+  .photo{width:96px; height:112px; border-radius:10px; flex:none;
+    background:linear-gradient(150deg,#16365f,#0d2038);
+    border:1.5px solid #2f5race; border:1.5px solid #2f5a8f;
+    display:flex; align-items:center; justify-content:center;
+    color:#4f6f9c; font-size:38px; overflow:hidden;}
+  .photo img{width:100%; height:100%; object-fit:cover;}
+  .pmeta{flex:1;}
+  .pname{font-size:23px; font-weight:800; letter-spacing:.01em; line-height:1.1;}
+  .pgrid{display:grid; grid-template-columns:1fr 1fr; gap:5px 16px; margin-top:9px;}
+  .pfield{font-size:12.5px;}
+  .pfield .k{color:var(--dim); text-transform:uppercase; letter-spacing:.05em;
+     font-size:10.5px; display:block;}
+  .pfield .v{color:#e7effb; font-weight:600;}
+  .titleblock{display:flex; flex-direction:column; justify-content:center;
+     align-items:center; text-align:center;}
+  .classline{font-size:12px; letter-spacing:.16em; font-weight:700;
+     color:#0a1220; background:linear-gradient(90deg,var(--amber),#ffd280);
+     padding:4px 16px; border-radius:20px; text-transform:uppercase;}
+  .rtitle{font-size:34px; font-weight:900; letter-spacing:.03em; margin-top:8px;
+     background:linear-gradient(90deg,#eaf2ff,#a9c6f5);
+     -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .rsub{font-size:14px; color:var(--mute); margin-top:2px; letter-spacing:.02em;}
+  .rmeta{font-size:11.5px; color:var(--dim); margin-top:7px; letter-spacing:.04em;}
+  .gauge-wrap{display:flex; flex-direction:column; align-items:center;
+     justify-content:center;}
+  .gauge{width:132px; height:132px; border-radius:50%;
+     display:flex; align-items:center; justify-content:center; position:relative;}
+  .gauge::before{content:""; position:absolute; inset:13px; border-radius:50%;
+     background:var(--card);}
+  .gauge .val{position:relative; text-align:center;}
+  .gauge .num{font-size:36px; font-weight:900; line-height:1;}
+  .gauge .den{font-size:12px; color:var(--mute);}
+  .rbadge{margin-top:9px; font-size:13px; font-weight:800; letter-spacing:.1em;
+     padding:5px 16px; border-radius:8px; text-transform:uppercase;}
+
+  /* ---- KPI strip ---- */
+  .kpis{display:grid; grid-template-columns:repeat(10,1fr); gap:11px;
+        margin-bottom:14px;}
+  .kpi{background:linear-gradient(180deg,var(--card),var(--card2));
+    border:1px solid var(--panel-b); border-radius:12px; padding:12px 12px 11px;
+    position:relative; overflow:hidden;}
+  .kpi .kico{font-size:17px;}
+  .kpi .klbl{font-size:10.5px; color:var(--mute); text-transform:uppercase;
+     letter-spacing:.04em; margin-top:5px; line-height:1.15; min-height:26px;}
+  .kpi .kval{font-size:25px; font-weight:800; margin-top:3px; line-height:1;}
+  .kpi .ksub{font-size:10px; color:var(--dim); margin-top:3px;}
+  .kpi .bar{position:absolute; left:0; top:0; bottom:0; width:4px;}
+  .g .kval{color:var(--green);} .g .bar{background:var(--green);}
+  .r .kval{color:var(--red);}   .r .bar{background:var(--red);}
+  .blue .kval{color:#7fb0ff;}   .blue .bar{background:var(--blue);}
+  .teal .kval{color:var(--teal);} .teal .bar{background:var(--teal);}
+  .amber .kval{color:var(--amber);} .amber .bar{background:var(--amber);}
+  .risk-high .kval{color:var(--hi);} .risk-high .bar{background:var(--hi);}
+  .risk-medium .kval{color:var(--med);} .risk-medium .bar{background:var(--med);}
+  .risk-low .kval{color:var(--lo);} .risk-low .bar{background:var(--lo);}
+
+  /* ---- money flow chips ---- */
+  .flowchips{display:flex; gap:10px; margin-bottom:10px;}
+  .fchip{flex:1; border-radius:10px; padding:9px 12px; border:1px solid var(--line);
+     background:var(--card2);}
+  .fchip .l{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--mute);}
+  .fchip .v{font-size:21px; font-weight:800; margin-top:2px;}
+  .fchip.in{border-left:4px solid var(--green);} .fchip.in .v{color:var(--green);}
+  .fchip.out{border-left:4px solid var(--red);} .fchip.out .v{color:var(--red);}
+  .fchip.net{border-left:4px solid var(--blue);} .fchip.net .v{color:#8fb6ff;}
+
+  img.chart{width:100%; display:block;}
+
+  /* ---- tables ---- */
+  table{width:100%; border-collapse:collapse; font-size:12px;}
+  th{ text-align:left; color:var(--dim); font-weight:600; text-transform:uppercase;
+     letter-spacing:.04em; font-size:10px; padding:5px 7px; border-bottom:1px solid var(--line);}
+  td{padding:5px 7px; border-bottom:1px solid rgba(30,57,99,.5); color:#d4e0f2;}
+  tr:last-child td{border-bottom:none;}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums;}
+  .pill{display:inline-block; padding:1px 8px; border-radius:20px; font-size:10px;
+     font-weight:700;}
+  .pill.High{background:rgba(248,113,113,.18); color:#ffb4b4; border:1px solid rgba(248,113,113,.4);}
+  .pill.Medium{background:rgba(245,178,63,.16); color:#ffd591; border:1px solid rgba(245,178,63,.4);}
+  .pill.Low{background:rgba(52,211,153,.15); color:#9beccb; border:1px solid rgba(52,211,153,.4);}
+  .mono{font-variant-numeric:tabular-nums;}
+  .co{color:var(--teal);} .ind{color:var(--pink);}
+
+  /* ---- findings ---- */
+  .findgrid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px 12px;}
+  .finding{display:flex; gap:9px; padding:7px 9px; border-radius:9px;
+     background:var(--card2); border:1px solid var(--line);
+     border-left-width:4px;}
+  .finding.High{border-left-color:var(--hi);}
+  .finding.Medium{border-left-color:var(--med);}
+  .finding.Low{border-left-color:var(--lo);}
+  .finding .ficon{font-size:17px; line-height:1.2;}
+  .finding .fbody{flex:1;}
+  .finding .ftitle{font-size:12.5px; font-weight:700; color:#eaf1fb;}
+  .finding .fbadges{display:flex; gap:5px; margin:3px 0;}
+  .finding .fdetail{font-size:10.5px; color:var(--mute); line-height:1.32;}
+  .mini{font-size:9px; font-weight:700; padding:1px 6px; border-radius:5px;
+     text-transform:uppercase; letter-spacing:.03em;}
+  .mini.lvl-High{background:rgba(248,113,113,.2); color:#ffbcbc;}
+  .mini.lvl-Medium{background:rgba(245,178,63,.2); color:#ffdca0;}
+  .mini.lvl-Low{background:rgba(52,211,153,.18); color:#a7edd0;}
+  .mini.conf{background:rgba(75,139,245,.18); color:#a9c8ff;}
+
+  /* risk bars */
+  .rbar-row{display:flex; align-items:center; gap:8px; margin:4px 0; font-size:11.5px;}
+  .rbar-row .nm{width:150px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+     color:#d7e2f3;}
+  .rbar-track{flex:1; height:12px; border-radius:7px; background:var(--card2);
+     border:1px solid var(--line); overflow:hidden;}
+  .rbar-fill{height:100%; border-radius:7px;}
+  .rbar-row .sc{width:58px; text-align:right; font-weight:700; font-variant-numeric:tabular-nums;}
+  .fill-High{background:linear-gradient(90deg,#b93b3b,var(--hi));}
+  .fill-Medium{background:linear-gradient(90deg,#b8841f,var(--med));}
+  .fill-Low{background:linear-gradient(90deg,#1f8a63,var(--lo));}
+
+  .split2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .listhdr{font-size:11px; color:var(--mute); text-transform:uppercase;
+     letter-spacing:.05em; margin-bottom:5px; display:flex; align-items:center; gap:5px;}
+  .erow{display:flex; align-items:center; gap:7px; font-size:11.5px; padding:3px 0;
+     border-bottom:1px solid rgba(30,57,99,.45);}
+  .erow:last-child{border-bottom:none;}
+  .erow .en{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .erow .ea{font-weight:700; font-variant-numeric:tabular-nums;}
+  .erow .ep{width:44px; text-align:right; color:var(--dim); font-size:10px;}
+
+  .foot{display:flex; justify-content:space-between; align-items:center;
+     margin-top:14px; padding-top:11px; border-top:1px solid var(--line);
+     font-size:11px; color:var(--dim); letter-spacing:.03em;}
+  .foot b{color:var(--mute);}
+  .disc{font-size:10px; color:var(--dim); font-style:italic; max-width:60%;}
+</style>
+</head>
+<body>
+{% set band_color = {'High':'var(--hi)','Medium':'var(--med)','Low':'var(--lo)'} %}
+<div class="sheet">
+  <div class="accent-top"></div>
+
+  <!-- ============ HEADER ============ -->
+  <div class="hdr">
+    <div class="panel profile-panel">
+      <div class="phead"><span class="ico">🔍</span><h3>Subject Profile</h3>
+        <span class="tag">KYC / CDD</span></div>
+      <div class="profile">
+        <div class="photo">
+          {% if photo_uri %}<img src="{{ photo_uri }}">{% else %}👤{% endif %}
+        </div>
+        <div class="pmeta">
+          <div class="pname">{{ profile.full_name }}</div>
+          <div class="pgrid">
+            <div class="pfield"><span class="k">Nationality</span><span class="v">{{ profile.nationality }}</span></div>
+            <div class="pfield"><span class="k">Customer ID</span><span class="v">{{ profile.customer_id }}</span></div>
+            <div class="pfield"><span class="k">Primary Account</span><span class="v mono">{{ profile.primary_account }}</span></div>
+            <div class="pfield"><span class="k">Risk Rating</span><span class="v" style="color:{{ band_color[overall_band] }}">{{ profile.risk_rating }}</span></div>
+            <div class="pfield" style="grid-column:1/3"><span class="k">Analysis Period</span><span class="v">📅 {{ profile.analysis_period }}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="titleblock">
+      <div class="classline">{{ meta.classification }}</div>
+      <div class="rtitle">{{ meta.title }}</div>
+      <div class="rsub">{{ meta.subtitle }}</div>
+      <div class="rmeta">{{ meta.unit }} &nbsp;·&nbsp; Ref {{ meta.reference }} &nbsp;·&nbsp; Currency {{ meta.currency }}</div>
+    </div>
+
+    <div class="panel gauge-wrap">
+      <div class="phead" style="width:100%"><span class="ico">⚠</span><h3>Risk Index</h3></div>
+      {% set ang = (overall_risk/100*360)|round(0,'floor')|int %}
+      <div class="gauge" style="background:conic-gradient({{ band_color[overall_band] }} {{ ang }}deg, #16305a {{ ang }}deg);">
+        <div class="val"><div class="num" style="color:{{ band_color[overall_band] }}">{{ overall_risk }}</div><div class="den">/ 100</div></div>
+      </div>
+      <div class="rbadge" style="background:{{ band_color[overall_band] }}22; color:{{ band_color[overall_band] }}; border:1px solid {{ band_color[overall_band] }}66;">{{ overall_band }} Risk</div>
+    </div>
+  </div>
+
+  <!-- ============ KPI STRIP ============ -->
+  <div class="kpis">
+    {% for ico,lbl,val,sub,cls in kpi_cards %}
+    <div class="kpi {{ cls }}"><div class="bar"></div>
+      <div class="kico">{{ ico }}</div>
+      <div class="klbl">{{ lbl }}</div>
+      <div class="kval">{{ val }}</div>
+      <div class="ksub">{{ sub }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ============ ROW A : money flow + timeline ============ -->
+  <div class="grid" style="margin-bottom:14px;">
+    <div class="panel" style="grid-column:span 4;">
+      <div class="phead"><span class="ico">💰</span><h3>Money Flow</h3><span class="tag">Sankey</span></div>
+      <div class="flowchips">
+        <div class="fchip in"><div class="l">⬇ Total Inbound</div><div class="v">{{ money(flow['in']) }}</div></div>
+        <div class="fchip out"><div class="l">⬆ Total Outbound</div><div class="v">{{ money(flow.out) }}</div></div>
+        <div class="fchip net"><div class="l">＝ Net Balance</div><div class="v">{{ money(flow.net) }}</div></div>
+      </div>
+      <img class="chart" src="{{ img.sankey }}">
+    </div>
+    <div class="panel" style="grid-column:span 8;">
+      <div class="phead"><span class="ico">📈</span><h3>Timeline — Monthly In / Out</h3>
+        <span class="tag">Spikes flagged</span></div>
+      <img class="chart" src="{{ img.timeline }}">
+    </div>
+  </div>
+
+  <!-- ============ ROW B : network + financial crime ============ -->
+  <div class="grid" style="margin-bottom:14px;">
+    <div class="panel" style="grid-column:span 5;">
+      <div class="phead"><span class="ico">🕸</span><h3>Network Analysis</h3>
+        <span class="tag">Node size = volume</span></div>
+      <img class="chart" src="{{ img.network }}">
+    </div>
+    <div class="panel" style="grid-column:span 7;">
+      <div class="phead"><span class="ico">🚨</span><h3>Financial-Crime Typology Detection</h3>
+        <span class="tag">{{ findings|length }} indicators · not an accusation</span></div>
+      <div class="findgrid">
+        {% for f in findings %}
+        <div class="finding {{ f.level }}">
+          <div class="ficon">{{ f.icon }}</div>
+          <div class="fbody">
+            <div class="ftitle">{{ f.title }}</div>
+            <div class="fbadges">
+              <span class="mini lvl-{{ f.level }}">{{ f.level }} risk</span>
+              <span class="mini conf">Conf: {{ f.confidence }}</span>
+            </div>
+            <div class="fdetail">{{ f.detail }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LOWER : packed 3-column stacks ============ -->
+  <div class="grid" style="margin-bottom:14px; align-items:start;">
+
+    <!-- Stack 1 : Account Analysis + Top 10 Incoming -->
+    <div style="grid-column:span 4; display:flex; flex-direction:column; gap:14px;">
+      <div class="panel">
+        <div class="phead"><span class="ico">🏦</span><h3>Account Analysis</h3>
+          <span class="tag">per account</span></div>
+        <table>
+          <thead><tr><th>Account</th><th class="num">In</th><th class="num">Out</th>
+            <th class="num">Txns</th><th class="num">Largest</th><th class="num">Avg</th><th class="num">Risk</th></tr></thead>
+          <tbody>
+          {% for a in accounts %}
+            <tr>
+              <td class="mono">🏦 {{ a.account }}</td>
+              <td class="num" style="color:var(--green)">{{ money(a['in']) }}</td>
+              <td class="num" style="color:var(--red)">{{ money(a.out) }}</td>
+              <td class="num">{{ a.count }}</td>
+              <td class="num">{{ money(a.largest) }}</td>
+              <td class="num">{{ money(a.avg) }}</td>
+              <td class="num"><span class="pill {{ a.band }}">{{ a.risk }}</span></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        <div class="subnote" style="margin-top:9px;">Most-active counterparty —
+          {% for a in accounts %}<b style="color:#bcd0ee">…{{ a.account[-4:] }}</b>: {{ (a.top_beneficiary if a.top_beneficiary != '—' else a.top_sender)|truncate(18,true,'…') }}{{ ' · ' if not loop.last }}{% endfor %}</div>
+        <div class="split2" style="margin-top:11px;">
+          <div class="fchip in"><div class="l">🏦 Accounts Monitored</div><div class="v" style="font-size:18px">{{ kpis.n_accounts }}</div></div>
+          <div class="fchip out"><div class="l">⚠ Flagged Accounts</div><div class="v" style="font-size:18px; color:var(--amber)">{{ accounts_risk|selectattr('band','ne','Low')|list|length }}</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="phead"><span class="ico">⬇</span><h3>Top 10 Incoming</h3>
+          <span class="tag">by value</span></div>
+        <table>
+          <thead><tr><th>Date</th><th>Sender</th><th>Method</th><th class="num">Amount</th></tr></thead>
+          <tbody>
+          {% for t in top_in %}
+            <tr><td class="mono">{{ t.date }}</td>
+              <td style="max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ t.sender }}</td>
+              <td>{{ t.method }}</td>
+              <td class="num" style="color:var(--green); font-weight:700;">{{ money_full(t.amount) }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Stack 2 : Risk Dashboard + Top 10 Outgoing -->
+    <div style="grid-column:span 4; display:flex; flex-direction:column; gap:14px;">
+      <div class="panel">
+        <div class="phead"><span class="ico">🎯</span><h3>Risk Dashboard</h3>
+          <span class="tag">🟢 Low · 🟡 Medium · 🔴 High</span></div>
+        <div class="grid" style="grid-template-columns:repeat(12,1fr);">
+          <div style="grid-column:span 5;">
+            <div class="listhdr">Risk Matrix — severity × confidence</div>
+            <img class="chart" src="{{ img.risk_matrix }}">
+          </div>
+          <div style="grid-column:span 7;">
+            <div class="listhdr">Highest-scoring accounts &amp; counterparties (0–100)</div>
+            {% for a in accounts_risk %}
+            <div class="rbar-row">
+              <span class="nm">🏦 {{ a.account }}</span>
+              <span class="rbar-track"><span class="rbar-fill fill-{{ a.band }}" style="width:{{ a.risk }}%"></span></span>
+              <span class="sc" style="color:{{ band_color[a.band] }}">{{ a.risk }}</span>
+            </div>
+            {% endfor %}
+            {% for e in risk_entities[:5] %}
+            <div class="rbar-row">
+              <span class="nm">{{ '🏢' if e.role in ['Beneficiary','Counterparty'] else '👤' }} {{ e.name }}</span>
+              <span class="rbar-track"><span class="rbar-fill fill-{{ e.band }}" style="width:{{ e.score }}%"></span></span>
+              <span class="sc" style="color:{{ band_color[e.band] }}">{{ e.score }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="phead"><span class="ico">⬆</span><h3>Top 10 Outgoing</h3>
+          <span class="tag">by value</span></div>
+        <table>
+          <thead><tr><th>Date</th><th>Beneficiary</th><th>Method</th><th class="num">Amount</th></tr></thead>
+          <tbody>
+          {% for t in top_out %}
+            <tr><td class="mono">{{ t.date }}</td>
+              <td style="max-width:230px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ t.beneficiary }}</td>
+              <td>{{ t.method }}</td>
+              <td class="num" style="color:var(--red); font-weight:700;">{{ money_full(t.amount) }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Stack 3 : Txn Methods + Heat-Map -->
+    <div style="grid-column:span 4; display:flex; flex-direction:column; gap:14px;">
+      <div class="panel">
+        <div class="phead"><span class="ico">📊</span><h3>Transaction Methods</h3></div>
+        <div class="grid" style="grid-template-columns:repeat(12,1fr); align-items:center;">
+          <div style="grid-column:span 5;"><img class="chart" src="{{ img.method_donut }}"></div>
+          <div style="grid-column:span 7;">
+            <table>
+              <thead><tr><th>Method</th><th class="num">Cnt</th><th class="num">Value</th><th class="num">%</th></tr></thead>
+              <tbody>
+              {% for m in methods %}
+                {% set micon = {'Transfer':'💳','Withdrawal':'🏧','Cheque':'🧾'} %}
+                <tr><td>{{ micon.get(m.method,'') }} {{ m.method }}</td>
+                  <td class="num">{{ m.count }}</td>
+                  <td class="num">{{ money(m.amount) }}</td>
+                  <td class="num">{{ '%.0f'|format(m.pct_amount) }}%</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="phead"><span class="ico">📊</span><h3>Activity Heat-Map</h3>
+          <span class="tag">value × month × method</span></div>
+        <img class="chart" src="{{ img.heatmap }}" style="margin-top:6px;">
+        <div class="split2" style="margin-top:10px;">
+          <div class="fchip in"><div class="l">Inbound Txns</div><div class="v" style="font-size:18px">{{ flow.in_count }}</div></div>
+          <div class="fchip out"><div class="l">Outbound Txns</div><div class="v" style="font-size:18px">{{ flow.out_count }}</div></div>
+        </div>
+        <div class="subnote" style="margin-top:8px;">Brighter cells mark months / methods with elevated aggregate value — cross-reference with the timeline spikes above.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SENDER / BENEFICIARY band ============ -->
+  <div class="grid">
+    <div class="panel" style="grid-column:span 6;">
+      <div class="phead"><span class="ico">⬇</span><h3>Sender Analysis</h3>
+        <span class="tag">👤 persons vs 🏢 companies · by inflow</span></div>
+      <div class="grid" style="grid-template-columns:repeat(12,1fr); align-items:center;">
+        <div style="grid-column:span 7;"><img class="chart" src="{{ img.senders_bar }}"></div>
+        <div style="grid-column:span 5;">
+          <div class="listhdr">👤 Top Persons</div>
+          {% for e in sender_persons[:3] %}
+          <div class="erow"><span class="en">{{ e.name }}</span><span class="ea" style="color:var(--green)">{{ money(e.amount) }}</span><span class="ep">{{ '%.0f'|format(e.pct) }}%</span></div>
+          {% endfor %}
+          {% if not sender_persons %}<div class="subnote">None</div>{% endif %}
+          <div class="listhdr" style="margin-top:7px;">🏢 Top Companies</div>
+          {% for e in sender_companies[:3] %}
+          <div class="erow"><span class="en">{{ e.name }}</span><span class="ea" style="color:var(--green)">{{ money(e.amount) }}</span><span class="ep">{{ '%.0f'|format(e.pct) }}%</span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="grid-column:span 6;">
+      <div class="phead"><span class="ico">⬆</span><h3>Beneficiary Analysis</h3>
+        <span class="tag">👤 persons vs 🏢 companies · by outflow</span></div>
+      <div class="grid" style="grid-template-columns:repeat(12,1fr); align-items:center;">
+        <div style="grid-column:span 7;"><img class="chart" src="{{ img.beneficiaries_bar }}"></div>
+        <div style="grid-column:span 5;">
+          <div class="listhdr">👤 Top Persons</div>
+          {% for e in ben_persons[:3] %}
+          <div class="erow"><span class="en">{{ e.name }}</span><span class="ea" style="color:var(--red)">{{ money(e.amount) }}</span><span class="ep">{{ '%.0f'|format(e.pct) }}%</span></div>
+          {% endfor %}
+          <div class="listhdr" style="margin-top:7px;">🏢 Top Companies</div>
+          {% for e in ben_companies[:3] %}
+          <div class="erow"><span class="en">{{ e.name }}</span><span class="ea" style="color:var(--red)">{{ money(e.amount) }}</span><span class="ep">{{ '%.0f'|format(e.pct) }}%</span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+
+  <div class="foot">
+    <div class="disc">⚠ Automated typology indicators are decision-support only and do <b>not</b> constitute an allegation of wrongdoing. Each flag denotes a potential indicator requiring analyst review and, where warranted, enhanced due diligence.</div>
+    <div style="text-align:right;">
+      <b>{{ meta.classification }}</b><br>
+      Generated by Financial Intelligence Unit · Transaction Monitoring Engine · Ref {{ meta.reference }}
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
