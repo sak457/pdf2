@@ -99,6 +99,54 @@ can be tuned per jurisdiction.
 
 ---
 
+## Docker / air-gapped deployment (amd64)
+
+The image is built for **x86_64 / amd64** servers and bundles everything needed
+at run time — Python deps, the Chromium browser, its shared libraries, and the
+emoji/symbol fonts the dashboard renders — so it needs **no network access when
+run**. Build it on a connected host, carry the tarball into the air-gapped
+network, load, and run.
+
+**On a network-connected build host:**
+
+```bash
+./docker-airgap-build.sh 1.0
+# builds aml-report:1.0 for linux/amd64 and writes aml-report_1.0_amd64.tar.gz
+```
+
+(or manually)
+
+```bash
+docker buildx build --platform linux/amd64 -t aml-report:1.0 --load .
+docker save aml-report:1.0 | gzip > aml-report_1.0_amd64.tar.gz
+```
+
+**Transfer** `aml-report_1.0_amd64.tar.gz` into the air-gapped network, then on
+a target server:
+
+```bash
+gunzip -c aml-report_1.0_amd64.tar.gz | docker load
+mkdir -p output
+
+# demo report from synthetic data
+docker run --rm -v "$PWD/output:/app/output" aml-report:1.0
+
+# report from a real statement (mount it read-only)
+docker run --rm -v "$PWD/output:/app/output" -v "$PWD/in:/data:ro" \
+    aml-report:1.0 --excel /data/statement.xlsx
+```
+
+The PDF appears at `output/AML_Intelligence_Report.pdf`.
+
+Notes:
+- The `--platform linux/amd64` pin makes the image amd64 even if the build host
+  is arm (Apple silicon) — it builds via QEMU emulation. The helper script
+  verifies the resulting image architecture is `amd64`.
+- Chromium runs with `--no-sandbox` (required as root inside a container) and
+  `--disable-dev-shm-usage`; no extra `docker run` flags are needed.
+- To override the subject profile without rebuilding, mount your own
+  `config.py`: `-v "$PWD/config.py:/app/config.py:ro"`.
+
 ## Project layout
 
 ```

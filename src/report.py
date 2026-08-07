@@ -145,23 +145,42 @@ def render_html(context: dict) -> str:
     return tmpl.render(**context)
 
 
-def _chrome() -> str:
+def _chrome() -> str | None:
+    """Locate a Chromium executable, or return None to let Playwright resolve
+    its own bundled browser (the normal case inside the Docker image)."""
+    # 1. explicit override / known candidates
     for c in CHROME_CANDIDATES:
         if c and os.path.exists(c):
             return c
+    # 2. search every plausible Playwright browser directory
     import glob
-    hits = glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
-    if hits:
-        return sorted(hits)[-1]
-    raise FileNotFoundError("Chromium executable not found under /opt/pw-browsers")
+    roots = [
+        os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""),
+        "/opt/pw-browsers",
+        os.path.expanduser("~/.cache/ms-playwright"),
+    ]
+    for root in roots:
+        if not root:
+            continue
+        hits = (glob.glob(os.path.join(root, "chromium-*/chrome-linux/chrome")) +
+                glob.glob(os.path.join(root, "chromium_headless_shell-*/"
+                                             "chrome-linux/headless_shell")))
+        if hits:
+            return sorted(hits)[-1]
+    # 3. fall back to Playwright's default resolution
+    return None
 
 
 def to_pdf(html: str, pdf_path: str, png_path: str | None = None) -> None:
     from playwright.sync_api import sync_playwright
     os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
     with sync_playwright() as p:
-        browser = p.chromium.launch(executable_path=_chrome(),
-                                    args=["--no-sandbox", "--force-color-profile=srgb"])
+        launch_kwargs = {"args": ["--no-sandbox", "--disable-dev-shm-usage",
+                                  "--force-color-profile=srgb"]}
+        chrome = _chrome()
+        if chrome:
+            launch_kwargs["executable_path"] = chrome
+        browser = p.chromium.launch(**launch_kwargs)
         page = browser.new_page(device_scale_factor=2)
         page.set_content(html, wait_until="networkidle")
         # Measure the sheet so the PDF is exactly one landscape page.

@@ -1,0 +1,13 @@
+# Keep the build context (and image) small
+.git
+.gitignore
+__pycache__/
+**/__pycache__/
+*.pyc
+.venv/
+venv/
+output/
+*.tar
+*.tar.gz
+*.md
+!README.md
