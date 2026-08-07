@@ -1,4 +1,76 @@
-# AML / Financial Intelligence Report Generator
+# AML / Financial Intelligence Toolkit
+
+Two ways to turn POI transaction data into a professional financial-intelligence
+product:
+
+1. **📊 Interactive dashboard** (`app/`) — a Streamlit web app: upload a CSV,
+   slice it with filters, drill into every chart's evidence, edit the POI and
+   the link-analysis nodes, and export a customised decision-maker PDF. **Start
+   here for day-to-day analysis.**
+2. **🖨️ Batch one-pager** (`src/`) — a headless pipeline that renders a
+   single-page landscape PDF infographic from a dataset (great for automation /
+   air-gapped generation).
+
+---
+
+## 📊 Interactive dashboard (Streamlit)
+
+```bash
+pip install -r requirements-app.txt
+streamlit run app/app.py
+```
+
+Then open the browser tab it prints. Click **Load sample** (sidebar) to explore
+immediately, or upload your own CSV.
+
+**Input CSV schema** (case-insensitive headers; common aliases tolerated):
+
+| column | values |
+|--------|--------|
+| `date` | transaction date |
+| `direction` | `in` · `out` · `own_account` |
+| `account_no` | POI account; `A\|B` for own-account transfers |
+| `sender` | `poi` · a company name · `unknown` |
+| `beneficiary` | `poi` · a company name · `unknown` |
+| `amount` | numeric |
+| `transaction_method` | `transfer` · `withdrawal` · `cheque` · `cash` · … |
+
+**What it does**
+
+- **BLUF summary** auto-generated at the top (editable) so the picture is clear
+  in one read — no briefing required.
+- **Night / day** theme toggle; modern dark FIU styling by default.
+- **Filters**: date range, quarter, direction, method, account, counterparty
+  type, and amount range — every chart, KPI and the risk score recompute live.
+- **Evidence on demand**: a `🔬 Evidence` button on the risk score, each chart,
+  and every financial-crime indicator reveals *why* it fired and *the exact
+  transactions* behind it.
+- **POI profile** editor (name, nationality, doc/customer id, photo, notes).
+- **Link analysis**: interactive relationship graph (node size = volume, edge
+  colour = direction). Annotate any node with a name / doc id / photo / notes,
+  and inspect **the transactions between any two nodes**.
+- **Financial-crime typologies**: 14 detectors (structuring, smurfing, funnel/
+  layering, pass-through, round-tripping, round-dollar, own-account churn,
+  fan-out, dormant-reactivation, repeated transfers, frequent withdrawals,
+  high-value, unusual cheque, abnormal frequency, behavioural outliers), each
+  with risk level, confidence, plain-language explanation and evidence.
+- **Export**: choose exactly which exhibits to include, add commentary, and
+  download a **high-quality landscape PDF** (BLUF cover + POI card + KPIs +
+  selected charts + findings) for a decision-maker.
+
+Wording is deliberately non-accusatory — every flag is a *potential indicator
+requiring review*, not an allegation.
+
+**Run in Docker** (slim — no system Chromium needed):
+
+```bash
+docker buildx build --platform linux/amd64 -f Dockerfile.app -t aml-dashboard:1.0 --load .
+docker run --rm -p 8501:8501 aml-dashboard:1.0     # http://localhost:8501
+```
+
+---
+
+## 🖨️ Batch one-pager generator
 
 Generates a **single-page, landscape PDF infographic** that looks like a
 professional intelligence product from a bank's AML department or a government
