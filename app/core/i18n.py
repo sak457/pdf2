@@ -130,6 +130,17 @@ STR = {
     "node_b": {"en": "Node B", "ar": "العقدة ب"},
     "no_direct": {"en": "No direct transactions between these two nodes.", "ar": "لا توجد معاملات مباشرة بين العقدتين."},
     "total": {"en": "total", "ar": "الإجمالي"},
+    "net_help": {"en": "Drag nodes to rearrange · scroll to zoom · click a node to focus its "
+                       "links · click empty space to reset · hover for details.",
+                 "ar": "اسحب العقد لإعادة الترتيب · مرّر للتكبير · اضغط عقدة لإبراز روابطها · "
+                       "اضغط على فراغ لإعادة الضبط · مرّر المؤشر لعرض التفاصيل."},
+    "lg_poi": {"en": "Subject", "ar": "الشخص"},
+    "lg_account": {"en": "Account", "ar": "حساب"},
+    "lg_company": {"en": "Company", "ar": "شركة"},
+    "lg_unknown": {"en": "Unknown", "ar": "غير معروف"},
+    "lg_in": {"en": "Incoming", "ar": "وارد"},
+    "lg_out": {"en": "Outgoing", "ar": "صادر"},
+    "lg_own": {"en": "Own-account", "ar": "بين الحسابات"},
     # crime
     "crime_title": {"en": "Financial-crime typology detection", "ar": "كشف أنماط الجرائم المالية"},
     "crime_note": {"en": "decision-support only, not an allegation", "ar": "لدعم القرار فقط، وليست اتهامًا"},

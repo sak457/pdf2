@@ -351,13 +351,23 @@ elif sec == "cp":
 
 # ---- Link Analysis ----
 elif sec == "net":
+    import streamlit.components.v1 as components
     chart_header(L("net_title"), "network")
+    # legend
+    lg = [(t["poi"], f"⭐ {L('lg_poi')}"), (t["account"], L("lg_account")),
+          (t["company"], L("lg_company")), (t["unknown"], L("lg_unknown")),
+          (t["green"], f"— {L('lg_in')}"), (t["red"], f"— {L('lg_out')}"),
+          (t["violet"], f"— {L('lg_own')}")]
+    chips = " ".join(
+        f"<span style='display:inline-flex;align-items:center;gap:6px;margin-inline-end:14px;"
+        f"font-family:var(--mono);font-size:12px;color:{t['mute']}'>"
+        f"<span style='width:12px;height:12px;border-radius:50%;background:{c};"
+        f"box-shadow:0 0 8px {c}'></span>{lab}</span>" for c, lab in lg)
+    st.markdown(f"<div class='card' style='padding:10px 14px'>{chips}</div>", unsafe_allow_html=True)
+    st.caption("🖱️ " + L("net_help"))
+    html = network.pyvis_html(d, R["entity_risk"], ss.nodes, t, height=620, lang=lang)
+    components.html(html, height=650, scrolling=False)
     u = network.node_universe(d)
-    fcol1, _ = st.columns([0.4, 0.6])
-    focus = fcol1.selectbox(L("focus_node"), [L("focus_all")] + u, key="focusnode")
-    focus_val = None if focus == L("focus_all") else focus
-    st.plotly_chart(network.figure(d, R["entity_risk"], ss.nodes, t, focus=focus_val, lang=lang),
-                    use_container_width=True, config=PLOTLY_CFG, key="net")
     lc1, lc2 = st.columns(2)
     with lc1:
         st.markdown(f"**✏️ {L('annotate_node')}**")

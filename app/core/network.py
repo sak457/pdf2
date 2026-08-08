@@ -202,6 +202,127 @@ def figure(df, entity_risk, annotations, t, highlight=None, height=560, focus=No
     return fig
 
 
+def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en") -> str:
+    """Interactive vis.js graph (drag / zoom / hover / click-to-focus).
+
+    Self-contained HTML (inline JS) suitable for st.components.v1.html. Clicking
+    a node isolates it and its direct links; clicking empty space resets.
+    """
+    import json
+    from pyvis.network import Network
+    from .analytics import money
+
+    H, vol, node_type = _build(df, entity_risk, annotations)
+    ar = lang == "ar"
+    net = Network(height=f"{height}px", width="100%", bgcolor=t["page"],
+                  font_color=t["ink"], directed=True, cdn_resources="in_line")
+
+    tcolor = {"POI": t["poi"], "Account": t["account"], "Company": t["company"],
+              "Unknown": t["unknown"], "Person": t["pink"]}
+    tlabel = ({"POI": "الشخص", "Account": "حساب", "Company": "شركة",
+               "Unknown": "غير معروف", "Person": "فرد", "Internal": "داخلي"} if ar else
+              {k: k for k in ["POI", "Account", "Company", "Unknown", "Person", "Internal"]})
+    mx = max(vol.values()) if vol else 1
+
+    for n in H.nodes:
+        ann = annotations.get(n, {})
+        disp = ann.get("display_name") or (n if n != POI else ("الشخص محل الاهتمام" if ar else "POI (Subject)"))
+        nt = node_type[n]
+        size = 16 + 40 * (vol.get(n, 0) / mx)
+        er = entity_risk.get(n, {})
+        tip = [disp, f"{tlabel.get(nt, nt)}"]
+        if vol.get(n):
+            tip.append((("الحجم: " if ar else "Volume: ") + money(vol[n])))
+        if er:
+            tip.append((("المخاطر: " if ar else "Risk: ") + f"{er['score']}/100 ({er['band']})"))
+        if ann.get("doc_id"):
+            tip.append(("رقم: " if ar else "Doc ID: ") + str(ann["doc_id"]))
+        if ann.get("notes"):
+            tip.append(("ملاحظة: " if ar else "Note: ") + str(ann["notes"])[:80])
+        col = tcolor.get(nt, t["blue"])
+        border = t["red"] if er.get("band") == "High" else t["hair"]
+        kw = dict(label=disp, title="\n".join(tip), size=size,
+                  color={"background": col, "border": border,
+                         "highlight": {"background": col, "border": t["amber"]}},
+                  borderWidth=2, borderWidthSelected=4,
+                  shadow={"enabled": True, "color": col, "size": 22, "x": 0, "y": 0},
+                  font={"color": t["ink"], "size": 15, "face": "Inter",
+                        "strokeWidth": 3, "strokeColor": t["page"]})
+        if n == POI:
+            kw.update(shape="star", size=max(size, 34), color={"background": t["poi"],
+                      "border": t["amber"], "highlight": {"background": t["poi"], "border": "#fff"}})
+        elif ann.get("photo"):
+            kw.update(shape="circularImage", image=ann["photo"], brokenImage="")
+        else:
+            kw.update(shape="dot")
+        net.add_node(n, **kw)
+
+    kind_color = {"in": t["green"], "out": t["red"], "own": t["violet"], "own_link": t["dim"]}
+    kind_label = ({"in": "وارد", "out": "صادر", "own": "بين الحسابات", "own_link": "ملكية"} if ar
+                  else {"in": "Incoming", "out": "Outgoing", "own": "Own-account", "own_link": "Ownership"})
+    for u, v, d in H.edges(data=True):
+        kind = d["kind"]
+        if kind == "own_link":
+            net.add_edge(u, v, color={"color": t["dim"], "opacity": 0.35}, width=1,
+                         dashes=True, arrows="", title=kind_label[kind],
+                         smooth={"type": "cubicBezier"})
+        else:
+            w = 1.5 + 5 * (d["w"] / mx)
+            net.add_edge(u, v, color={"color": kind_color[kind], "highlight": t["amber"]},
+                         width=w, title=f"{kind_label[kind]}: {money(d['w'])} · {d['n']}",
+                         arrows={"to": {"enabled": True, "scaleFactor": 0.6}},
+                         smooth={"type": "curvedCW", "roundness": 0.15})
+
+    net.set_options(json.dumps({
+        "interaction": {"hover": True, "dragNodes": True, "dragView": True,
+                        "zoomView": True, "navigationButtons": True, "keyboard": False,
+                        "tooltipDelay": 90, "hideEdgesOnDrag": True},
+        "physics": {"solver": "barnesHut",
+                    "barnesHut": {"gravitationalConstant": -20000, "centralGravity": 0.28,
+                                  "springLength": 130, "springConstant": 0.045,
+                                  "damping": 0.55, "avoidOverlap": 0.7},
+                    "stabilization": {"enabled": True, "iterations": 220},
+                    "minVelocity": 0.6},
+        "nodes": {"scaling": {"min": 12, "max": 60}},
+        "edges": {"shadow": False, "hoverWidth": 1.4, "selectionWidth": 2},
+    }))
+
+    html = net.generate_html()
+
+    # inject click-to-focus (dim non-neighbours) + fit-on-stabilized
+    focus_js = """
+    <script type="text/javascript">
+    (function(){
+      function attach(){
+        if (typeof network === 'undefined' || !network || typeof nodes === 'undefined') {
+          return setTimeout(attach, 120);
+        }
+        var ORIG = {}; var snap = nodes.get({returnType:'Object'});
+        for (var id in snap){ ORIG[id] = JSON.parse(JSON.stringify(snap[id].color || null)); }
+        network.on('stabilizationIterationsDone', function(){ network.fit({animation:true}); });
+        network.on('click', function(p){
+          var cur = nodes.get({returnType:'Object'}); var upd = [];
+          if (p.nodes.length){
+            var sel = p.nodes[0]; var con = network.getConnectedNodes(sel); con.push(sel);
+            for (var id in cur){
+              var dim = con.indexOf(id) === -1;
+              cur[id].color = dim ? {background:'rgba(130,142,165,0.10)', border:'rgba(130,142,165,0.15)'} : ORIG[id];
+              cur[id].opacity = dim ? 0.35 : 1.0;
+              upd.push(cur[id]);
+            }
+          } else {
+            for (var id in cur){ cur[id].color = ORIG[id]; cur[id].opacity = 1.0; upd.push(cur[id]); }
+          }
+          nodes.update(upd);
+        });
+      }
+      attach();
+    })();
+    </script>
+    """
+    return html.replace("</body>", focus_js + "</body>")
+
+
 def edge_transactions(df: pd.DataFrame, a: str, b: str) -> pd.DataFrame:
     """Transactions connecting two selected nodes (accounts / POI / counterparty)."""
     accts = set(x for row in df.accounts for x in row)
