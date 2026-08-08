@@ -183,12 +183,25 @@ with st.sidebar:
 #  Header + BLUF
 # --------------------------------------------------------------------------- #
 band_c = {"High": t["red"], "Medium": t["amber"], "Low": t["green"]}[R["overall_band"]]
+
+# top brand / identity rail
+st.markdown(
+    f"<div class='brand'><span class='logo'>{IC['app']}</span>"
+    f"<div><div class='name'>AML INTELLIGENCE TERMINAL</div>"
+    f"<div class='sub'>Transaction Monitoring · Financial-Crime Analytics</div></div>"
+    f"<span class='spacer'></span>"
+    f"<span class='stat'>SUBJECT&nbsp; <b>{ss.poi['name']}</b></span>"
+    f"<span class='stat'>SCOPE&nbsp; <b>{R['period_str']}</b></span>"
+    f"<span class='stat'>RECORDS&nbsp; <b>{len(d):,}</b></span>"
+    f"<span class='chip'>CONFIDENTIAL · FIU / AML</span></div>",
+    unsafe_allow_html=True)
+
 hc1, hc2 = st.columns([0.72, 0.28])
 with hc1:
     bluf_text = ss.bluf_override or R["bluf"]
     st.markdown(
         f"<div class='bluf'><span class='tag'>{IC['bluf']} BLUF — BOTTOM LINE UP FRONT</span>"
-        f"<h2>{ss.poi['name']} &nbsp;·&nbsp; Risk {k['risk']}/100 "
+        f"<h2>{ss.poi['name']} &nbsp;·&nbsp; <span class='num'>RISK {k['risk']}/100</span> "
         f"<span style='color:{band_c}'>({R['overall_band']})</span></h2>"
         f"<p style='margin:0'>{bluf_text}</p></div>", unsafe_allow_html=True)
 with hc2:

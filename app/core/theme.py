@@ -1,125 +1,107 @@
 """
-Theme, palette and icon system for the AML Intelligence dashboard.
+Theme, palette and icon system — "Financial Intelligence Terminal".
 
-Two coordinated palettes (night / day) drive both the Streamlit chrome (via
-injected CSS) and the Plotly figures (via ``apply_theme``), so a single toggle
-restyles the whole application consistently.
+Design direction (deliberate, not templated):
+  * Canvas    : deep near-black navy, the look of a signals / command console.
+  * Type      : Space Grotesk (display) · Inter (body) · JetBrains Mono (every
+                figure — money, scores, dates — set with tabular numerals so
+                columns of numbers line up like a forensic ledger).
+  * Signature : an amber "classification" accent + a thin status rail on cards
+                + monospaced section kickers ("SECTION // 03") that evoke the
+                numbered exhibits of a real intelligence report.
+
+Two coordinated palettes (night / day) drive both the Streamlit chrome (CSS)
+and the Plotly figures (apply_theme) so one toggle restyles everything.
 """
 
 from __future__ import annotations
 
 # --------------------------------------------------------------------------- #
-#  Icons — chosen to be self-explanatory to a non-technical reader
+#  Icons
 # --------------------------------------------------------------------------- #
 IC = {
-    "app": "🛡️",
-    "bluf": "📌",
-    "poi": "🪪",
-    "photo": "🧑",
-    "filters": "🎛️",
-    "theme": "🌗",
-    "evidence": "🔬",
-    "export": "📤",
-    "upload": "📥",
-    # KPIs
-    "txns": "🧮",
-    "in": "🟢",
-    "out": "🔴",
-    "net": "💰",
-    "accounts": "🏦",
-    "senders": "👥",
-    "beneficiaries": "🏢",
-    "avg": "📊",
-    "largest": "💠",
-    "risk": "⚠️",
-    "own": "🔁",
-    # sections
-    "overview": "📋",
-    "flow": "💵",
-    "timeline": "📈",
-    "counterparties": "👤",
-    "network": "🕸️",
-    "typology": "🚨",
-    "riskdash": "🎯",
-    "transactions": "🧾",
-    # methods
-    "transfer": "💳",
-    "withdrawal": "🏧",
-    "cheque": "🧾",
-    "cash": "💵",
-    "card": "💳",
-    # misc
-    "up": "⬆️",
-    "down": "⬇️",
-    "search": "🔍",
-    "company": "🏢",
-    "person": "👤",
+    "app": "🛰️",
+    "bluf": "📌", "poi": "🪪", "photo": "🧑", "filters": "🎛️", "theme": "🌗",
+    "evidence": "🔬", "export": "📤", "upload": "📥",
+    "txns": "🧮", "in": "🟢", "out": "🔴", "net": "💰", "accounts": "🏦",
+    "senders": "👥", "beneficiaries": "🏢", "avg": "📊", "largest": "💠",
+    "risk": "⚠️", "own": "🔁",
+    "overview": "📋", "flow": "💵", "timeline": "📈", "counterparties": "👤",
+    "network": "🕸️", "typology": "🚨", "riskdash": "🎯", "transactions": "🧾",
+    "transfer": "💳", "withdrawal": "🏧", "cheque": "🧾", "cash": "💵", "card": "💳",
+    "up": "⬆️", "down": "⬇️", "search": "🔍", "company": "🏢", "person": "👤",
     "unknown": "❓",
 }
 
-METHOD_ICON = {
-    "transfer": "💳", "withdrawal": "🏧", "cheque": "🧾",
-    "cash": "💵", "card": "💳", "deposit": "🏦", "wire": "🌐",
-}
+METHOD_ICON = {"transfer": "💳", "withdrawal": "🏧", "cheque": "🧾",
+               "cash": "💵", "card": "💳", "deposit": "🏦", "wire": "🌐"}
 
 TYPE_ICON = {"POI": "🎯", "Company": "🏢", "Unknown": "❓",
              "Person": "👤", "Internal": "🔁", "Account": "🏦"}
 
 # --------------------------------------------------------------------------- #
-#  Palettes
+#  Palettes  (colours grounded in the ui-ux-pro-max "Financial Dashboard" set)
 # --------------------------------------------------------------------------- #
 NIGHT = {
     "name": "night",
-    "page": "#081527",
-    "page2": "#0b2244",
-    "card": "#0f2645",
-    "card2": "#0c1f3b",
-    "border": "#22406e",
-    "ink": "#e9f0fb",
-    "mute": "#93a7c6",
-    "dim": "#6981a6",
-    "grid": "#1e3963",
-    "green": "#34d399",
-    "red": "#f87171",
-    "blue": "#4b8bf5",
+    "page": "#020617",        # near-black navy canvas
+    "page2": "#0a1122",
+    "card": "#0e1526",
+    "card2": "#0a1020",
+    "border": "#22314c",
+    "hair": "#33456a",        # brighter hairline for card top-edge
+    "ink": "#f4f8ff",
+    "mute": "#93a3c0",
+    "dim": "#5f7195",
+    "grid": "#1a2740",
+    "green": "#2ee6a6",
+    "red": "#ff5d6c",
+    "blue": "#4b8bff",
     "teal": "#2dd4bf",
-    "amber": "#f5b23f",
+    "amber": "#f5a524",       # signature classification accent
     "violet": "#a78bfa",
     "pink": "#f472b6",
+    "cyan": "#38bdf8",
     "plotly_template": "plotly_dark",
-    "poi": "#f5b23f",
-    "account": "#4b8bf5",
+    "poi": "#f5a524",
+    "account": "#4b8bff",
     "company": "#2dd4bf",
-    "unknown": "#8ea3c0",
+    "unknown": "#8394b3",
 }
 
 DAY = {
     "name": "day",
-    "page": "#eef2f8",
-    "page2": "#e4ebf5",
+    "page": "#eef2f9",
+    "page2": "#e3e9f4",
     "card": "#ffffff",
-    "card2": "#f5f8fc",
-    "border": "#d3ddec",
-    "ink": "#0f2140",
+    "card2": "#f4f7fc",
+    "border": "#d2dcec",
+    "hair": "#c2d0e6",
+    "ink": "#0b1a33",
     "mute": "#51637f",
-    "dim": "#7688a3",
-    "grid": "#dbe4f0",
-    "green": "#059669",
-    "red": "#dc2626",
+    "dim": "#7788a3",
+    "grid": "#dde5f1",
+    "green": "#0ea672",
+    "red": "#e23744",
     "blue": "#2563eb",
     "teal": "#0d9488",
-    "amber": "#d97706",
+    "amber": "#c77a10",
     "violet": "#7c3aed",
     "pink": "#db2777",
+    "cyan": "#0284c7",
     "plotly_template": "plotly_white",
-    "poi": "#d97706",
+    "poi": "#c77a10",
     "account": "#2563eb",
     "company": "#0d9488",
     "unknown": "#64748b",
 }
 
+FONT_SANS = "Inter, 'Segoe UI', DejaVu Sans, sans-serif"
+FONT_DISPLAY = "'Space Grotesk', Inter, sans-serif"
+FONT_MONO = "'JetBrains Mono', 'Fira Code', 'DejaVu Sans Mono', monospace"
+
 SERIES = lambda t: [t["teal"], t["blue"], t["amber"], t["violet"],
-                    t["pink"], t["green"], t["red"]]
+                    t["cyan"], t["pink"], t["green"], t["red"]]
 
 LEVEL_COLOR = lambda t: {"High": t["red"], "Medium": t["amber"], "Low": t["green"]}
 
@@ -136,26 +118,27 @@ def apply_theme(fig, t: dict, *, height=None, legend=True, title=None):
         template=t["plotly_template"],
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, Segoe UI, DejaVu Sans, sans-serif",
-                  color=t["ink"], size=13),
-        margin=dict(l=10, r=10, t=40 if title else 12, b=10),
+        font=dict(family=FONT_SANS, color=t["ink"], size=13),
+        margin=dict(l=12, r=12, t=42 if title else 14, b=12),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0,
-                    bgcolor="rgba(0,0,0,0)", font=dict(color=t["mute"])),
+                    bgcolor="rgba(0,0,0,0)", font=dict(color=t["mute"], size=12)),
         colorway=SERIES(t),
-        hoverlabel=dict(bgcolor=t["card"], font=dict(color=t["ink"]),
-                        bordercolor=t["border"]),
+        hoverlabel=dict(bgcolor=t["card"], font=dict(color=t["ink"], family=FONT_MONO),
+                        bordercolor=t["hair"]),
     )
     if title:
-        fig.update_layout(title=dict(text=title, font=dict(size=15, color=t["ink"]),
-                                     x=0.01, xanchor="left"))
+        fig.update_layout(title=dict(text=title, font=dict(size=15, color=t["ink"],
+                          family=FONT_DISPLAY), x=0.01, xanchor="left"))
     if not legend:
         fig.update_layout(showlegend=False)
     if height:
         fig.update_layout(height=height)
-    fig.update_xaxes(gridcolor=t["grid"], zerolinecolor=t["grid"],
-                     linecolor=t["grid"], tickfont=dict(color=t["mute"]))
-    fig.update_yaxes(gridcolor=t["grid"], zerolinecolor=t["grid"],
-                     linecolor=t["grid"], tickfont=dict(color=t["mute"]))
+    # numeric / date ticks in mono for a forensic-ledger feel
+    axis = dict(gridcolor=t["grid"], zerolinecolor=t["grid"], linecolor=t["grid"],
+                tickfont=dict(color=t["mute"], family=FONT_MONO, size=11),
+                title_font=dict(color=t["mute"], family=FONT_SANS))
+    fig.update_xaxes(**axis)
+    fig.update_yaxes(**axis)
     return fig
 
 
@@ -163,61 +146,136 @@ def apply_theme(fig, t: dict, *, height=None, legend=True, title=None):
 #  App CSS
 # --------------------------------------------------------------------------- #
 def app_css(t: dict) -> str:
+    scan = "rgba(255,255,255,0.015)" if t["name"] == "night" else "rgba(15,23,42,0.02)"
     return f"""
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-      .stApp {{ background:
-          radial-gradient(1100px 600px at 8% -6%, {t['page2']} 0%, transparent 55%),
-          linear-gradient(160deg, {t['page2']} 0%, {t['page']} 60%); }}
-      html, body, [class*="css"] {{ font-family:'Inter',sans-serif; color:{t['ink']}; }}
-      section[data-testid="stSidebar"] {{ background:{t['card2']}; border-right:1px solid {t['border']}; }}
-      section[data-testid="stSidebar"] * {{ color:{t['ink']}; }}
-      h1,h2,h3,h4,h5 {{ color:{t['ink']} !important; }}
-      p, span, label, li, td, th {{ color:{t['ink']}; }}
-      .stTabs [data-baseweb="tab-list"] {{ gap:4px; }}
-      .stTabs [data-baseweb="tab"] {{
-          background:{t['card']}; border:1px solid {t['border']};
-          border-radius:9px 9px 0 0; padding:6px 14px; color:{t['mute']}; }}
-      .stTabs [aria-selected="true"] {{ background:{t['card2']};
-          color:{t['ink']} !important; border-bottom:2px solid {t['amber']}; }}
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-      .card {{ background:linear-gradient(180deg,{t['card']},{t['card2']});
-          border:1px solid {t['border']}; border-radius:14px; padding:14px 16px;
-          box-shadow:0 6px 22px rgba(0,0,0,.20); margin-bottom:12px; }}
-      .kpi {{ background:linear-gradient(180deg,{t['card']},{t['card2']});
-          border:1px solid {t['border']}; border-radius:12px; padding:12px 14px;
-          position:relative; overflow:hidden; height:104px; }}
-      .kpi .lbl {{ font-size:11px; color:{t['mute']}; text-transform:uppercase;
-          letter-spacing:.04em; }}
-      .kpi .val {{ font-size:26px; font-weight:800; margin-top:4px; line-height:1.05; }}
-      .kpi .sub {{ font-size:11px; color:{t['dim']}; margin-top:2px; }}
+      :root {{
+        --ink:{t['ink']}; --mute:{t['mute']}; --dim:{t['dim']};
+        --card:{t['card']}; --card2:{t['card2']}; --border:{t['border']};
+        --hair:{t['hair']}; --amber:{t['amber']}; --page:{t['page']};
+        --green:{t['green']}; --red:{t['red']}; --blue:{t['blue']};
+        --mono:{FONT_MONO}; --sans:{FONT_SANS}; --disp:{FONT_DISPLAY};
+      }}
+      /* canvas — deep navy + faint scanline texture (the terminal risk) */
+      .stApp {{
+        background:
+          repeating-linear-gradient(0deg, {scan} 0 1px, transparent 1px 3px),
+          radial-gradient(1200px 640px at 6% -10%, {t['page2']} 0%, transparent 55%),
+          radial-gradient(900px 520px at 108% 0%, {t['page2']} 0%, transparent 50%),
+          linear-gradient(168deg, {t['page2']} 0%, {t['page']} 62%);
+      }}
+      html, body, [class*="css"] {{ font-family:var(--sans); color:var(--ink); }}
+      .block-container {{ padding-top:2.2rem; max-width:1500px; }}
+
+      h1,h2,h3,h4,h5 {{ font-family:var(--disp) !important; color:var(--ink) !important;
+        letter-spacing:-.01em; }}
+      p, span, label, li, td, th, div {{ color:var(--ink); }}
+      .mono, .num {{ font-family:var(--mono); font-variant-numeric:tabular-nums; }}
+
+      /* sidebar */
+      section[data-testid="stSidebar"] {{ background:{t['card2']};
+        border-right:1px solid var(--border); }}
+      section[data-testid="stSidebar"] * {{ color:var(--ink); }}
+
+      /* section headers: intelligence-report kicker + accent tick */
+      .stMarkdown h5 {{ position:relative; padding-left:14px; margin:.2rem 0 .5rem;
+        font-size:15px !important; text-transform:none; letter-spacing:.01em; }}
+      .stMarkdown h5::before {{ content:""; position:absolute; left:0; top:2px; bottom:2px;
+        width:4px; border-radius:3px;
+        background:linear-gradient(180deg,var(--amber),{t['blue']}); }}
+
+      /* tabs — mono uppercase, amber active rail */
+      .stTabs [data-baseweb="tab-list"] {{ gap:2px; border-bottom:1px solid var(--border); }}
+      .stTabs [data-baseweb="tab"] {{ background:transparent; border:none;
+        font-family:var(--mono); font-size:11.5px; letter-spacing:.06em;
+        text-transform:uppercase; color:var(--mute); padding:8px 14px; }}
+      .stTabs [aria-selected="true"] {{ color:var(--ink) !important;
+        border-bottom:2px solid var(--amber); background:linear-gradient(180deg,transparent,{t['amber']}10); }}
+
+      /* top brand rail */
+      .brand {{ display:flex; align-items:center; gap:14px; padding:10px 16px;
+        border:1px solid var(--border); border-radius:12px; margin-bottom:14px;
+        background:linear-gradient(90deg,{t['card']},{t['card2']});
+        border-left:4px solid var(--amber); }}
+      .brand .logo {{ font-size:24px; }}
+      .brand .name {{ font-family:var(--disp); font-weight:700; font-size:18px;
+        letter-spacing:.02em; }}
+      .brand .sub {{ font-family:var(--mono); font-size:11px; color:var(--mute);
+        letter-spacing:.08em; text-transform:uppercase; }}
+      .brand .spacer {{ flex:1; }}
+      .brand .chip {{ font-family:var(--mono); font-size:10.5px; font-weight:600;
+        letter-spacing:.1em; text-transform:uppercase; padding:5px 12px;
+        border-radius:20px; background:{t['amber']}1c; color:var(--amber);
+        border:1px solid {t['amber']}55; }}
+      .brand .stat {{ font-family:var(--mono); font-size:11px; color:var(--mute);
+        padding-left:14px; border-left:1px solid var(--border); }}
+      .brand .stat b {{ color:var(--ink); }}
+
+      /* generic card */
+      .card {{ background:linear-gradient(180deg,var(--card),var(--card2));
+        border:1px solid var(--border); border-radius:14px; padding:14px 16px;
+        position:relative; margin-bottom:12px; }}
+      .card::before {{ content:""; position:absolute; inset:0 0 auto 0; height:1px;
+        background:linear-gradient(90deg,transparent,var(--hair),transparent); }}
+
+      /* KPI tiles — mono value, status rail */
+      .kpi {{ background:linear-gradient(180deg,var(--card),var(--card2));
+        border:1px solid var(--border); border-radius:13px; padding:12px 14px 11px;
+        position:relative; overflow:hidden; height:108px; }}
+      .kpi::before {{ content:""; position:absolute; inset:0 0 auto 0; height:1px;
+        background:linear-gradient(90deg,transparent,var(--hair),transparent); }}
+      .kpi .lbl {{ font-family:var(--mono); font-size:10px; color:var(--mute);
+        text-transform:uppercase; letter-spacing:.09em; }}
+      .kpi .val {{ font-family:var(--mono); font-size:27px; font-weight:700;
+        margin-top:6px; line-height:1.02; font-variant-numeric:tabular-nums; }}
+      .kpi .sub {{ font-size:11px; color:var(--dim); margin-top:3px; }}
       .kpi .bar {{ position:absolute; left:0; top:0; bottom:0; width:4px; }}
 
-      .bluf {{ background:linear-gradient(135deg,{t['card']},{t['card2']});
-          border:1px solid {t['border']}; border-left:6px solid {t['amber']};
-          border-radius:14px; padding:16px 20px; margin-bottom:14px;
-          box-shadow:0 8px 26px rgba(0,0,0,.22); }}
-      .bluf h2 {{ margin:0 0 6px 0; font-size:18px; letter-spacing:.02em; }}
-      .bluf .tag {{ display:inline-block; font-size:11px; font-weight:700;
-          letter-spacing:.12em; padding:3px 10px; border-radius:20px;
-          background:{t['amber']}22; color:{t['amber']}; border:1px solid {t['amber']}55; }}
+      /* BLUF hero */
+      .bluf {{ background:
+          radial-gradient(600px 200px at 100% 0%, {t['amber']}12 0%, transparent 60%),
+          linear-gradient(135deg,var(--card),var(--card2));
+        border:1px solid var(--border); border-left:5px solid var(--amber);
+        border-radius:16px; padding:18px 22px; margin-bottom:14px;
+        box-shadow:0 10px 30px rgba(0,0,0,.28); }}
+      .bluf h2 {{ margin:2px 0 8px 0; font-size:22px; letter-spacing:-.01em; }}
+      .bluf .num {{ font-family:var(--mono); }}
+      .bluf .tag {{ display:inline-block; font-family:var(--mono); font-size:10.5px;
+        font-weight:600; letter-spacing:.14em; padding:4px 11px; border-radius:20px;
+        background:{t['amber']}1c; color:var(--amber); border:1px solid {t['amber']}55; }}
 
+      /* pills / badges */
       .pill {{ display:inline-block; padding:2px 10px; border-radius:20px;
-          font-size:11px; font-weight:700; }}
+        font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.04em; }}
       .pill-High {{ background:{t['red']}22; color:{t['red']}; border:1px solid {t['red']}66; }}
       .pill-Medium {{ background:{t['amber']}22; color:{t['amber']}; border:1px solid {t['amber']}66; }}
       .pill-Low {{ background:{t['green']}22; color:{t['green']}; border:1px solid {t['green']}66; }}
 
-      .find {{ border:1px solid {t['border']}; border-left-width:5px;
-          border-radius:10px; padding:10px 14px; margin-bottom:8px;
-          background:{t['card2']}; }}
-      .find .ttl {{ font-size:15px; font-weight:700; }}
-      .find .why {{ font-size:12.5px; color:{t['mute']}; margin-top:4px; line-height:1.4; }}
-      .prof {{ text-align:center; }}
-      .prof .nm {{ font-size:17px; font-weight:800; margin-top:6px; }}
-      .prof .meta {{ font-size:12px; color:{t['mute']}; }}
-      .stDownloadButton button, .stButton button {{ border-radius:9px; font-weight:600; }}
-      .muted {{ color:{t['mute']}; font-size:12.5px; }}
-      hr {{ border-color:{t['border']}; }}
+      /* finding cards */
+      .find {{ border:1px solid var(--border); border-left-width:5px; border-radius:11px;
+        padding:11px 15px; margin-bottom:8px;
+        background:linear-gradient(180deg,var(--card),var(--card2)); }}
+      .find .ttl {{ font-family:var(--disp); font-size:15px; font-weight:600; }}
+      .find .why {{ font-size:12.5px; color:var(--mute); margin-top:5px; line-height:1.45; }}
+
+      .muted {{ color:var(--mute); font-size:12.5px; }}
+      hr {{ border-color:var(--border); }}
+
+      /* buttons */
+      .stButton button, .stDownloadButton button, .stFormSubmitButton button {{
+        border-radius:10px; font-weight:600; font-family:var(--sans);
+        border:1px solid var(--border); }}
+      .stButton button[kind="primary"], .stDownloadButton button[kind="primary"] {{
+        background:var(--amber); color:#0a0f1c; border:none; }}
+
+      /* dataframe container */
+      [data-testid="stDataFrame"] {{ border:1px solid var(--border); border-radius:10px; }}
+
+      /* scrollbars */
+      ::-webkit-scrollbar {{ width:10px; height:10px; }}
+      ::-webkit-scrollbar-thumb {{ background:{t['border']}; border-radius:8px; }}
+      ::-webkit-scrollbar-track {{ background:transparent; }}
     </style>
     """
