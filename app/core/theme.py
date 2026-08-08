@@ -273,6 +273,46 @@ def app_css(t: dict) -> str:
       /* dataframe container */
       [data-testid="stDataFrame"] {{ border:1px solid var(--border); border-radius:10px; }}
 
+      /* entrance animations — replay whenever a section renders */
+      @media (prefers-reduced-motion: no-preference) {{
+        @keyframes upfade {{ from {{ opacity:0; transform:translateY(12px) scale(.985); }}
+          to {{ opacity:1; transform:none; }} }}
+        @keyframes glowin {{ from {{ opacity:0; filter:blur(6px); }} to {{ opacity:1; filter:none; }} }}
+        [data-testid="stPlotlyChart"] {{ animation:glowin .5s cubic-bezier(.16,1,.3,1) both; }}
+        .card, .kpi, .find, .bluf, [data-testid="stDataFrame"],
+        [data-testid="stMetric"] {{ animation:upfade .38s cubic-bezier(.16,1,.3,1) both; }}
+        .kpi:nth-child(2) {{ animation-delay:.04s; }}
+        .kpi:nth-child(3) {{ animation-delay:.08s; }}
+        .kpi:nth-child(4) {{ animation-delay:.12s; }}
+        .kpi:nth-child(5) {{ animation-delay:.16s; }}
+      }}
+
+      /* info icon */
+      .infowrap {{ display:inline-flex; align-items:center; gap:8px; }}
+      .infobtn {{ display:inline-flex; align-items:center; justify-content:center;
+        width:20px; height:20px; border-radius:50%; font-size:12px; font-weight:700;
+        background:{t['blue']}22; color:{t['blue']}; border:1px solid {t['blue']}66;
+        cursor:help; }}
+
+      /* POI top card (inline-editable look) */
+      .poicard {{ display:flex; gap:16px; align-items:center;
+        background:linear-gradient(135deg,var(--card),var(--card2));
+        border:1px solid var(--border); border-radius:16px; padding:14px 18px; }}
+      .poicard .avatar {{ width:74px; height:74px; border-radius:14px; flex:none;
+        background:linear-gradient(150deg,{t['blue']}33,{t['card2']});
+        border:1px solid var(--border); display:flex; align-items:center;
+        justify-content:center; font-size:30px; overflow:hidden; }}
+      .poicard .avatar img {{ width:100%; height:100%; object-fit:cover; }}
+      .poicard .nm {{ font-family:var(--disp); font-weight:700; font-size:19px; }}
+      .poi-field {{ font-size:12.5px; }}
+      .poi-field .k {{ font-family:var(--mono); font-size:10px; color:var(--mute);
+        text-transform:uppercase; letter-spacing:.08em; display:block; }}
+      .poi-field .v {{ color:var(--ink); font-weight:600; }}
+
+      /* nav (segmented) */
+      [data-testid="stSegmentedControl"] button {{ font-family:var(--mono);
+        text-transform:uppercase; letter-spacing:.05em; font-size:11.5px; }}
+
       /* scrollbars */
       ::-webkit-scrollbar {{ width:10px; height:10px; }}
       ::-webkit-scrollbar-thumb {{ background:{t['border']}; border-radius:8px; }}

@@ -48,6 +48,31 @@ def risk_band(s) -> str:
     return "High" if s >= 66 else "Medium" if s >= 33 else "Low"
 
 
+def score_from(findings) -> int:
+    """Overall 0–100 risk recomputed from an (already-filtered) findings list."""
+    return min(100, int(round(sum(f["weight"] for f in findings) * 0.85)))
+
+
+def spike_breakdown(df: pd.DataFrame, month: str) -> dict:
+    """Who sent / received during a spike month."""
+    gm = df[df.month == month]
+    gi = gm[gm.direction == "in"]
+    go = gm[gm.direction == "out"]
+    def rank(frame, denom):
+        ext = frame[~frame.counterparty_type.isin(["POI", "Internal"])]
+        if ext.empty:
+            return []
+        r = (ext.groupby("counterparty")
+             .agg(amount=("amount", "sum"), count=("amount", "size")).reset_index()
+             .sort_values("amount", ascending=False).head(6))
+        return [dict(name=x.counterparty, amount=x.amount, count=int(x.count),
+                     pct=100 * x.amount / denom if denom else 0) for x in r.itertuples()]
+    return dict(month=month, inflow=gi.amount.sum(), outflow=go.amount.sum(),
+                in_count=len(gi), out_count=len(go),
+                senders=rank(gi, gi.amount.sum()), beneficiaries=rank(go, go.amount.sum()),
+                evidence=gm[EVID_COLS].sort_values("amount", ascending=False))
+
+
 def _f(key, title, icon, level, conf, weight, why, basis, evidence, metric=None):
     return dict(key=key, title=title, icon=icon, level=level, confidence=conf,
                 weight=weight, why=why, basis=basis,

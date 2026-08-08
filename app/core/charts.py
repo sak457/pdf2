@@ -48,17 +48,19 @@ def method_bar(methods, t):
     return apply_theme(fig, t, height=300, legend=False)
 
 
-def timeline(tl, spikes, t):
+def timeline(tl, spikes, t, lang="en"):
     x = [r["month"] for r in tl]
+    lin = "الوارد" if lang == "ar" else "Inflow"
+    lout = "الصادر" if lang == "ar" else "Outflow"
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=[r["inflow"] for r in tl], name="Inflow",
+    fig.add_trace(go.Scatter(x=x, y=[r["inflow"] for r in tl], name=lin,
                              mode="lines+markers", line=dict(color=t["green"], width=3),
                              fill="tozeroy", fillcolor=_alpha(t["green"], .12),
-                             hovertemplate="%{x}<br>In %{y:,.0f}<extra></extra>"))
-    fig.add_trace(go.Scatter(x=x, y=[r["outflow"] for r in tl], name="Outflow",
+                             hovertemplate="%{x}<br>%{y:,.0f}<extra></extra>"))
+    fig.add_trace(go.Scatter(x=x, y=[r["outflow"] for r in tl], name=lout,
                              mode="lines+markers", line=dict(color=t["red"], width=3),
                              fill="tozeroy", fillcolor=_alpha(t["red"], .10),
-                             hovertemplate="%{x}<br>Out %{y:,.0f}<extra></extra>"))
+                             hovertemplate="%{x}<br>%{y:,.0f}<extra></extra>"))
     for m in spikes.get("inflow", []):
         r = next(z for z in tl if z["month"] == m)
         fig.add_annotation(x=m, y=r["inflow"], text="▲ spike", showarrow=False,
@@ -98,8 +100,9 @@ def accounts_bar(accounts, t):
     return apply_theme(fig, t, height=300)
 
 
-def sankey(R, t):
+def sankey(R, t, lang="en"):
     inc, out = R["inc"], R["out"]
+    ar = lang == "ar"
 
     def groups(frame, col, other, n=5):
         s = frame[~frame.counterparty_type.isin(["POI", "Internal"])]\
@@ -109,9 +112,9 @@ def sankey(R, t):
             top.append((other, s.iloc[n:].sum()))
         return top
 
-    left = groups(inc, "counterparty", "Other sources")
-    right = groups(out, "counterparty", "Other destinations")
-    hub = "MY ACCOUNTS"
+    left = groups(inc, "counterparty", "مصادر أخرى" if ar else "Other sources")
+    right = groups(out, "counterparty", "وجهات أخرى" if ar else "Other destinations")
+    hub = "حسابات الشخص" if ar else "MY ACCOUNTS"
     labels = [l[0] for l in left] + [hub] + [r[0] for r in right]
     idx = {name: i for i, name in enumerate(labels)}
     src, tgt, val, col = [], [], [], []

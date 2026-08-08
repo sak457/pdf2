@@ -85,13 +85,13 @@ def _edge(G, u, v, amt, kind):
         G.add_edge(u, v, w=amt, n=1, kind=kind)
 
 
-def figure(df, entity_risk, annotations, t, highlight=None, height=560):
+def figure(df, entity_risk, annotations, t, highlight=None, height=560, focus=None, lang="en"):
     import plotly.graph_objects as go
     from .analytics import money
     from .theme import apply_theme
 
     H, vol, node_type = _build(df, entity_risk, annotations)
-    pos = nx.spring_layout(H, k=1.1, seed=11, iterations=200)
+    pos = nx.spring_layout(H, k=1.25, seed=11, iterations=240)
     pos[POI] = (0, 0)
 
     tcolor = {"POI": t["poi"], "Account": t["account"],
@@ -99,32 +99,62 @@ def figure(df, entity_risk, annotations, t, highlight=None, height=560):
     kind_color = {"in": t["green"], "out": t["red"], "own": t["violet"],
                   "own_link": t["dim"]}
 
-    # edges (one trace per kind for legend clarity)
+    # which nodes are connected to the focus node (for dimming)
+    connected = None
+    if focus and focus in H:
+        connected = {focus} | set(H.predecessors(focus)) | set(H.successors(focus))
+
+    def curve(p0, p1, bend=0.16, steps=16):
+        (x0, y0), (x1, y1) = p0, p1
+        mxp, myp = (x0 + x1) / 2, (y0 + y1) / 2
+        dx, dy = x1 - x0, y1 - y0
+        cx, cy = mxp - dy * bend, myp + dx * bend  # control point off the midpoint
+        xs, ys = [], []
+        for i in range(steps + 1):
+            s = i / steps
+            xs.append((1 - s) ** 2 * x0 + 2 * (1 - s) * s * cx + s * s * x1)
+            ys.append((1 - s) ** 2 * y0 + 2 * (1 - s) * s * cy + s * s * y1)
+        return xs, ys
+
+    # edges — gently curved, one trace per kind
     edge_traces = []
     for kind, col in kind_color.items():
         xs, ys = [], []
         for u, v, d in H.edges(data=True):
             if d["kind"] != kind:
                 continue
-            xs += [pos[u][0], pos[v][0], None]
-            ys += [pos[u][1], pos[v][1], None]
+            cx, cy = curve(pos[u], pos[v], 0 if kind == "own_link" else 0.16)
+            xs += cx + [None]; ys += cy + [None]
         if xs:
-            width = 1 if kind == "own_link" else 2
-            name = {"in": "Incoming", "out": "Outgoing", "own": "Own-account",
-                    "own_link": "Ownership"}[kind]
+            width = 1 if kind == "own_link" else 2.2
+            op = 0.5 if kind != "own_link" else 0.25
+            if connected and kind != "own_link":
+                op = 0.5  # keep; dimming handled per-node below via layer
+            _names = ({"in": "وارد", "out": "صادر", "own": "بين الحسابات", "own_link": "ملكية"}
+                      if lang == "ar" else
+                      {"in": "Incoming", "out": "Outgoing", "own": "Own-account", "own_link": "Ownership"})
+            name = _names[kind]
             edge_traces.append(go.Scatter(
-                x=xs, y=ys, mode="lines", line=dict(color=col, width=width),
-                opacity=0.45 if kind != "own_link" else 0.3, hoverinfo="skip",
-                name=name, showlegend=kind != "own_link"))
+                x=xs, y=ys, mode="lines",
+                line=dict(color=col, width=width, shape="spline"),
+                opacity=op, hoverinfo="skip", name=name,
+                showlegend=kind != "own_link"))
 
     mx = max(vol.values()) if vol else 1
-    nx_, ny, sizes, colors, texts, labels, lines = [], [], [], [], [], [], []
+    nx_, ny, sizes, colors, texts, labels, lines, halo_x, halo_y, halo_s, halo_c, opac = \
+        [], [], [], [], [], [], [], [], [], [], [], []
     for n in H.nodes:
         ann = annotations.get(n, {})
         disp = ann.get("display_name") or (n if n != POI else "POI (Subject)")
-        nx_.append(pos[n][0]); ny.append(pos[n][1])
-        sizes.append(18 + 46 * (vol.get(n, 0) / mx))
-        colors.append(tcolor.get(node_type[n], t["blue"]))
+        size = 20 + 48 * (vol.get(n, 0) / mx)
+        dim = connected is not None and n not in connected
+        nx_.append(pos[n][0]); ny.append(pos[n][1]); sizes.append(size)
+        col = tcolor.get(node_type[n], t["blue"])
+        colors.append(col)
+        opac.append(0.18 if dim else 1.0)
+        # glow halo
+        halo_x.append(pos[n][0]); halo_y.append(pos[n][1])
+        halo_s.append(size * 2.1); halo_c.append(col)
         er = entity_risk.get(n, {})
         hover = [f"<b>{disp}</b>", f"{TYPE_ICON.get(node_type[n],'')} {node_type[n]}"]
         if vol.get(n):
@@ -136,20 +166,25 @@ def figure(df, entity_risk, annotations, t, highlight=None, height=560):
         if ann.get("notes"):
             hover.append(f"Note: {ann['notes'][:80]}")
         texts.append("<br>".join(hover))
-        labels.append(disp if len(disp) <= 20 else disp[:18] + "…")
-        # ring: red if high risk or highlighted
+        labels.append("" if dim else (disp if len(disp) <= 20 else disp[:18] + "…"))
         ring = t["red"] if er.get("band") == "High" else t["card2"]
-        if highlight and n in highlight:
+        if (highlight and n in highlight) or (focus and n == focus):
             ring = t["amber"]
         lines.append(ring)
 
+    halo_trace = go.Scatter(
+        x=halo_x, y=halo_y, mode="markers", hoverinfo="skip", showlegend=False,
+        marker=dict(size=halo_s, color=halo_c, opacity=0.14,
+                    line=dict(width=0)), name="")
     node_trace = go.Scatter(
         x=nx_, y=ny, mode="markers+text", text=labels, textposition="bottom center",
-        textfont=dict(color=t["ink"], size=10), hovertext=texts, hoverinfo="text",
-        marker=dict(size=sizes, color=colors, line=dict(color=lines, width=2.4)),
+        textfont=dict(color=t["ink"], size=10, family="Inter, sans-serif"),
+        hovertext=texts, hoverinfo="text", customdata=list(H.nodes),
+        marker=dict(size=sizes, color=colors, opacity=opac,
+                    line=dict(color=lines, width=2.4)),
         showlegend=False, name="")
 
-    fig = go.Figure(edge_traces + [node_trace])
+    fig = go.Figure(edge_traces + [halo_trace, node_trace])
     # photo overlays for annotated nodes
     images = []
     for n in H.nodes:
