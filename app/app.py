@@ -20,7 +20,7 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core import loader, analytics, charts, network, pptx_export, chat, i18n
+from core import loader, analytics, charts, network, pptx_export, chat, i18n, auth
 from core.theme import theme, app_css, IC
 from core.i18n import T as _T, info_text, typ_title, typ_plain
 
@@ -48,6 +48,8 @@ def _init():
     s.setdefault("chat", [])
     s.setdefault("tmpl", None)
     s.setdefault("nav", None)
+    s.setdefault("kpi_hidden", set())
+    s.setdefault("bluf_edit", False)
 
 
 _init()
@@ -60,6 +62,11 @@ st.markdown(i18n.rtl_css(lang), unsafe_allow_html=True)
 
 def L(key):
     return _T(key, lang)
+
+
+# --- authentication gate -------------------------------------------------- #
+if not auth.require_login(lang, _T("brand", lang)):
+    st.stop()
 
 
 def data_uri(raw, mime="image/png"):
@@ -107,6 +114,7 @@ with st.sidebar:
     tsel = st.segmented_control(L("appearance"), [f"🌙 {L('night')}", f"☀️ {L('day')}"],
                                 default=f"🌙 {L('night')}" if ss.theme == "night" else f"☀️ {L('day')}")
     ss.theme = "night" if L("night") in tsel else "day"
+    auth.logout_button(lang)
 
     st.divider()
     st.markdown(f"**{IC['upload']} {L('data_source')}**")
@@ -250,35 +258,95 @@ else:
 hc1, hc2 = st.columns([0.72, 0.28])
 with hc1:
     bluf_text = ss.bluf_override or R["bluf"]
-    st.markdown(f"<div class='bluf'><span class='tag'>{IC['bluf']} {L('bluf')}</span>"
-                f"<h2>{ss.poi['name']} &nbsp;·&nbsp; <span class='num'>{L('risk_word')} {score}/100</span> "
-                f"<span style='color:{band_c}'>({band})</span></h2>"
-                f"<p style='margin:0'>{bluf_text}</p></div>", unsafe_allow_html=True)
+    tc1, tc2 = st.columns([0.8, 0.2])
+    with tc2:
+        if st.button(f"✏️ {L('edit_bluf')}", use_container_width=True):
+            ss.bluf_edit = not ss.bluf_edit
+    if ss.bluf_edit:
+        new = st.text_area(L("edit_bluf"), value=bluf_text, height=140, key="bluf_ta")
+        bc1, bc2 = st.columns(2)
+        if bc1.button(f"💾 {L('save')}", use_container_width=True, type="primary"):
+            ss.bluf_override = new; ss.bluf_edit = False; st.rerun()
+        if bc2.button(f"↺ {L('reset_auto')}", use_container_width=True):
+            ss.bluf_override = ""; ss.bluf_edit = False; st.rerun()
+    else:
+        st.markdown(f"<div class='bluf'><span class='tag'>{IC['bluf']} {L('bluf')}</span>"
+                    f"<h2>{ss.poi['name']} &nbsp;·&nbsp; <span class='num'>{L('risk_word')} {score}/100</span> "
+                    f"<span style='color:{band_c}'>({band})</span></h2>"
+                    f"<p style='margin:0'>{bluf_text}</p></div>", unsafe_allow_html=True)
 with hc2:
     st.plotly_chart(charts.risk_gauge(score, band, t), use_container_width=True,
                     config=PLOTLY_CFG, key="gauge")
 
-# KPI rows
-cols = st.columns(5)
-kpi(cols[0], IC["txns"], L("kpi_txns"), f"{k['total_txns']:,}", "", t["blue"])
-kpi(cols[1], IC["in"], L("kpi_in"), analytics.money(k["total_in"]), f"{R['flow']['in_count']} {L('credits')}", t["green"])
-kpi(cols[2], IC["out"], L("kpi_out"), analytics.money(k["total_out"]), f"{R['flow']['out_count']} {L('debits')}", t["red"])
-kpi(cols[3], IC["net"], L("kpi_net"), analytics.money(k["net"]), L("surplus") if k["net"] >= 0 else L("deficit"), t["green"] if k["net"] >= 0 else t["red"])
-kpi(cols[4], IC["own"], L("kpi_own"), analytics.money(k["own_total"]), f"{R['flow']['own_count']} {L('internal')}", t["violet"])
-cols = st.columns(5)
-kpi(cols[0], IC["accounts"], L("kpi_accounts"), f"{k['n_accounts']}", L("monitored"), t["blue"])
-kpi(cols[1], IC["senders"], L("kpi_senders"), f"{k['n_senders']}", "", t["teal"])
-kpi(cols[2], IC["beneficiaries"], L("kpi_bens"), f"{k['n_beneficiaries']}", "", t["teal"])
-kpi(cols[3], IC["largest"], L("kpi_largest"), analytics.money(k["largest"]), "", t["amber"])
-kpi(cols[4], IC["risk"], L("kpi_flags"), f"{len(active)}", L("high_med").format(
-    h=sum(f['level'] == 'High' for f in active), m=sum(f['level'] == 'Medium' for f in active)), band_c)
+# --------------------------------------------------------------------------- #
+#  Statistics (KPIs) — customizable, each with an info + evidence popover
+# --------------------------------------------------------------------------- #
+inc_ext = R["inc"][~R["inc"].counterparty_type.isin(["POI", "Internal"])]
+out_ext = R["out"][~R["out"].counterparty_type.isin(["POI", "Internal"])]
+STATS = [
+    ("txns", IC["txns"], L("kpi_txns"), f"{k['total_txns']:,}", "", t["blue"], "stat_txns", d[analytics.EVID_COLS]),
+    ("in", IC["in"], L("kpi_in"), analytics.money(k["total_in"]), f"{R['flow']['in_count']} {L('credits')}", t["green"], "stat_in", R["inc"][analytics.EVID_COLS]),
+    ("out", IC["out"], L("kpi_out"), analytics.money(k["total_out"]), f"{R['flow']['out_count']} {L('debits')}", t["red"], "stat_out", R["out"][analytics.EVID_COLS]),
+    ("net", IC["net"], L("kpi_net"), analytics.money(k["net"]), L("surplus") if k["net"] >= 0 else L("deficit"), t["green"] if k["net"] >= 0 else t["red"], "stat_net", None),
+    ("own", IC["own"], L("kpi_own"), analytics.money(k["own_total"]), f"{R['flow']['own_count']} {L('internal')}", t["violet"], "stat_own", R["own"][analytics.EVID_COLS]),
+    ("accounts", IC["accounts"], L("kpi_accounts"), f"{k['n_accounts']}", L("monitored"), t["blue"], "stat_accounts", None),
+    ("senders", IC["senders"], L("kpi_senders"), f"{k['n_senders']}", "", t["teal"], "stat_senders", None),
+    ("bens", IC["beneficiaries"], L("kpi_bens"), f"{k['n_beneficiaries']}", "", t["teal"], "stat_bens", None),
+    ("largest", IC["largest"], L("kpi_largest"), analytics.money(k["largest"]), "", t["amber"], "stat_largest", d.sort_values("amount", ascending=False).head(5)[analytics.EVID_COLS]),
+    ("flags", IC["risk"], L("kpi_flags"), f"{len(active)}", L("high_med").format(
+        h=sum(f['level'] == 'High' for f in active), m=sum(f['level'] == 'Medium' for f in active)), band_c, "stat_flags", None),
+]
+# lazy evidence for stats without a direct frame
+import pandas as _pd
+STAT_EV = {
+    "net": _pd.DataFrame([{"": L("kpi_in"), " ": analytics.money(k["total_in"])},
+                          {"": L("kpi_out"), " ": analytics.money(k["total_out"])},
+                          {"": L("kpi_net"), " ": analytics.money(k["net"])}]),
+    "accounts": _pd.DataFrame([{L("account"): a["account"], L("col_balance"): analytics.money(a["balance"])}
+                               for a in analytics.account_details(d)]),
+    "senders": _pd.DataFrame([{L("col_cp"): r["name"], L("col_amount"): analytics.money(r["amount"]), "#": r["count"]}
+                              for r in R["senders"][:10]]),
+    "bens": _pd.DataFrame([{L("col_cp"): r["name"], L("col_amount"): analytics.money(r["amount"]), "#": r["count"]}
+                          for r in R["beneficiaries"][:10]]),
+    "flags": _pd.DataFrame([{L("sec_crime"): typ_title(f["key"], lang, f["title"]),
+                             "": f["level"]} for f in active]),
+}
+
+with st.popover(f"⚙️ {L('customize_stats')}"):
+    st.caption(L("stat_show"))
+    for sid, icon, label, *_ in STATS:
+        shown = st.checkbox(f"{icon} {label}", value=sid not in ss.kpi_hidden, key=f"kp_{sid}")
+        if shown:
+            ss.kpi_hidden.discard(sid)
+        else:
+            ss.kpi_hidden.add(sid)
+
+visible = [s for s in STATS if s[0] not in ss.kpi_hidden]
+for i in range(0, len(visible), 5):
+    row = visible[i:i + 5]
+    cols = st.columns(5)
+    for j, (sid, icon, label, val, sub, color, info_key, ev) in enumerate(row):
+        with cols[j]:
+            kpi(cols[j], icon, label, val, sub, color)
+            with st.popover(f"ⓘ {L('evidence_for')}", use_container_width=True):
+                st.markdown(f"**{label}** — {info_text(info_key, lang)}")
+                edf = ev if ev is not None else STAT_EV.get(sid)
+                if edf is not None and len(edf):
+                    show = edf.copy()
+                    if "date" in show:
+                        show["date"] = _pd.to_datetime(show["date"]).dt.strftime("%Y-%m-%d")
+                    if "amount" in show:
+                        show["amount"] = show["amount"].map(lambda x: f"{x:,.0f}")
+                    st.dataframe(show, use_container_width=True, hide_index=True,
+                                 height=min(320, 44 + 28 * len(show)))
 
 st.write("")
 
 # --------------------------------------------------------------------------- #
 #  Navigation (segmented → conditional render → charts animate on each open)
 # --------------------------------------------------------------------------- #
-SECTIONS = [("flow", IC["flow"], L("sec_flow")), ("timeline", IC["timeline"], L("sec_timeline")),
+SECTIONS = [("flow", IC["flow"], L("sec_flow")), ("accounts", IC["accounts"], L("sec_accounts")),
+            ("timeline", IC["timeline"], L("sec_timeline")),
             ("cp", IC["counterparties"], L("sec_cp")), ("net", IC["network"], L("sec_network")),
             ("crime", IC["typology"], L("sec_crime")), ("risk", IC["riskdash"], L("sec_risk")),
             ("txns", IC["transactions"], L("sec_txns")), ("chat", "💬", L("sec_chat")),
@@ -306,6 +374,61 @@ if sec == "flow":
         L("kpi_largest"): analytics.money(a["largest"]), L("col_cp"): a["top_counterparty"],
         L("sec_risk"): f"{a['risk']} ({a['band']})"} for a in R["accounts"]]),
         use_container_width=True, hide_index=True)
+
+# ---- Accounts Details ----
+elif sec == "accounts":
+    ad = analytics.account_details(d)
+    chart_header(L("acc_table_title"), "accounts")
+    st.dataframe(pd.DataFrame([{
+        L("account"): a["account"], L("col_incoming"): analytics.money(a["inflow"]),
+        L("col_outgoing"): analytics.money(a["outflow"]), L("col_balance"): analytics.money(a["balance"]),
+        L("col_count"): a["count"], L("col_spike"): ("🔴 " + L("yes")) if a["spike"] else L("no")}
+        for a in ad]), use_container_width=True, hide_index=True)
+
+    spiky = [a for a in ad if a["spike"]]
+    if spiky:
+        st.markdown(f"##### ⚡ {L('spike_txns_title')}")
+        for a in spiky:
+            stx = analytics.account_spike_txns(d, a["account"], a["spike_months"])
+            with st.expander(L("spike_view").format(acc=a["account"], n=len(stx))):
+                sh = stx.copy(); sh["date"] = sh["date"].dt.strftime("%Y-%m-%d")
+                sh["flow"] = sh["flow"].map(lambda x: ("🟢 " + L("flow_in")) if x == "IN" else ("🔴 " + L("flow_out")))
+                sh["amount"] = sh["amount"].map(lambda x: f"{x:,.0f}")
+                sh = sh.rename(columns={"date": L("col_date"), "month": L("quarter"), "flow": L("col_flow"),
+                                        "party": L("col_party"), "counterparty_type": L("cp_type"),
+                                        "amount": L("col_amount"), "transaction_method": L("col_method")})
+                st.dataframe(sh, use_container_width=True, hide_index=True, height=min(320, 44 + 28 * len(sh)))
+
+    st.markdown(f"##### 👥 {L('acc_top_title')}")
+    for a in ad:
+        with st.expander(L("acc_expander").format(acc=a["account"])):
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                st.markdown(f"**⬇ {L('acc_top_senders')}**")
+                snd = analytics.account_top(d, a["account"], "in", 5)
+                st.dataframe(pd.DataFrame([{L("col_cp"): x["name"], L("cp_type"): x["type"],
+                                            L("col_amount"): analytics.money(x["amount"]), "#": x["count"]} for x in snd])
+                             if snd else pd.DataFrame({L("col_cp"): ["—"]}), use_container_width=True, hide_index=True)
+            with sc2:
+                st.markdown(f"**⬆ {L('acc_top_receivers')}**")
+                rcv = analytics.account_top(d, a["account"], "out", 5)
+                st.dataframe(pd.DataFrame([{L("col_cp"): x["name"], L("cp_type"): x["type"],
+                                            L("col_amount"): analytics.money(x["amount"]), "#": x["count"]} for x in rcv])
+                             if rcv else pd.DataFrame({L("col_cp"): ["—"]}), use_container_width=True, hide_index=True)
+
+    st.markdown(f"##### 🔗 {L('multi_title')}")
+    st.caption(L("multi_note"))
+    minacc = st.number_input(L("min_accounts"), min_value=2, max_value=max(2, k["n_accounts"]), value=2, step=1)
+    ma = analytics.multi_account_counterparties(d, int(minacc))
+    if ma:
+        st.dataframe(pd.DataFrame([{
+            L("col_cp"): m["counterparty"], L("cp_type"): m["type"], L("col_naccounts"): m["n_accounts"],
+            L("col_accounts"): " | ".join(m["accounts"]),
+            L("col_incoming"): analytics.money(m["inflow"]), L("col_outgoing"): analytics.money(m["outflow"]),
+            L("col_direction"): L("dir_both") if m["direction"] == "both" else (L("dir_in") if m["direction"] == "in" else L("dir_out"))}
+            for m in ma]), use_container_width=True, hide_index=True)
+    else:
+        st.info(L("multi_none"))
 
 # ---- Timeline ----
 elif sec == "timeline":
@@ -505,6 +628,7 @@ elif sec == "export":
         chosen = st.multiselect(L("exhibits"), list(catalogue),
                                 default=[L("sankey_title"), L("tl_title"), L("net_title"), L("risk_contrib")])
         inc_find = st.checkbox(L("inc_findings"), True)
+        inc_acc = st.checkbox(L("inc_accounts"), True)
     with ec2:
         rep_title = st.text_input(L("report_title"), "Financial Intelligence Report")
         prepared = st.text_input(L("prepared_for"), "Senior Management")
@@ -520,10 +644,25 @@ elif sec == "export":
             poi = dict(name=ss.poi["name"], nationality=ss.poi["nationality"], doc_id=ss.poi["doc_id"],
                        primary_account=ss.poi["primary_account"], period=R["period_str"], photo=ss.poi.get("photo"))
             sel = [dict(title=nm, fig=catalogue[nm][0](), note=catalogue[nm][1]) for nm in chosen]
+            tables = None
+            if inc_acc:
+                ad = analytics.account_details(d)
+                acc_tbl = pd.DataFrame([{
+                    L("account"): a["account"], L("col_incoming"): analytics.money(a["inflow"]),
+                    L("col_outgoing"): analytics.money(a["outflow"]), L("col_balance"): analytics.money(a["balance"]),
+                    L("col_spike"): L("yes") if a["spike"] else L("no")} for a in ad])
+                ma = analytics.multi_account_counterparties(d, 2)
+                multi_tbl = pd.DataFrame([{
+                    L("col_cp"): m["counterparty"], L("cp_type"): m["type"], L("col_naccounts"): m["n_accounts"],
+                    L("col_accounts"): " | ".join(m["accounts"]), L("col_incoming"): analytics.money(m["inflow"]),
+                    L("col_outgoing"): analytics.money(m["outflow"])} for m in ma])
+                tables = [{"title": L("acc_table_title"), "df": acc_tbl}]
+                if len(multi_tbl):
+                    tables.append({"title": L("multi_title"), "df": multi_tbl})
             pptx = pptx_export.build_pptx(t=t, meta=meta, bluf=ss.bluf_override or R["bluf"], poi=poi,
                                           kpis=k, overall_risk=score, overall_band=band, charts=sel,
                                           findings=active if inc_find else None,
-                                          analyst_note=ss.analyst_note, template_bytes=ss.tmpl)
+                                          analyst_note=ss.analyst_note, template_bytes=ss.tmpl, tables=tables)
         st.success("✓")
         st.download_button(f"⬇ {L('download_pptx')}", pptx, "AML_Intelligence_Report.pptx",
                            "application/vnd.openxmlformats-officedocument.presentationml.presentation",

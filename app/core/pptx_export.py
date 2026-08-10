@@ -70,8 +70,30 @@ def _rect(slide, x, y, w, h, fill, line=None):
     return sp
 
 
+def _table_slide(prs, new_slide, t, title, df, mute, ink, dark):
+    from pptx.util import Inches, Pt
+    s = new_slide(title)
+    SW = prs.slide_width / 914400.0
+    df = df.head(14)
+    rows, cols = len(df) + 1, len(df.columns)
+    gt = s.shapes.add_table(rows, cols, Inches(0.5), Inches(1.15),
+                            Inches(SW - 1.0), Inches(min(5.6, 0.4 + 0.34 * rows))).table
+    for j, c in enumerate(df.columns):
+        cell = gt.cell(0, j); cell.text = str(c)
+        cell.fill.solid(); cell.fill.fore_color.rgb = _rgb(t["card2"])
+        p = cell.text_frame.paragraphs[0]; p.runs[0].font.size = Pt(10)
+        p.runs[0].font.bold = True; p.runs[0].font.color.rgb = _rgb(t["amber"])
+    for i, (_, r) in enumerate(df.iterrows(), start=1):
+        for j, c in enumerate(df.columns):
+            cell = gt.cell(i, j); cell.text = str(r[c])
+            cell.fill.solid(); cell.fill.fore_color.rgb = _rgb(t["card"] if i % 2 else t["card2"])
+            pr = cell.text_frame.paragraphs[0]; pr.runs[0].font.size = Pt(9)
+            pr.runs[0].font.color.rgb = _rgb(ink if dark else "0B1A33")
+    return s
+
+
 def build_pptx(*, t, meta, bluf, poi, kpis, overall_risk, overall_band,
-               charts, findings=None, analyst_note="", template_bytes=None) -> bytes:
+               charts, findings=None, analyst_note="", template_bytes=None, tables=None) -> bytes:
     if template_bytes:
         prs = Presentation(io.BytesIO(template_bytes))
     else:
@@ -175,6 +197,10 @@ def build_pptx(*, t, meta, bluf, poi, kpis, overall_risk, overall_band,
                   f"{f['level'].upper()} · CONF {f['confidence'].upper()}", size=10,
                   bold=True, color=col, align=PP_ALIGN.RIGHT, anchor=MSO_ANCHOR.MIDDLE)
             y += 0.62
+
+    # ---- Table slides (e.g. Accounts Details) ----
+    for tb in (tables or []):
+        _table_slide(prs, new_slide, t, tb["title"], tb["df"], mute, ink, dark)
 
     out = io.BytesIO()
     prs.save(out)

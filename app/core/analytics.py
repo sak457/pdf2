@@ -11,7 +11,7 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
-CURRENCY = "$"
+CURRENCY = "AED "
 
 EVID_COLS = ["date", "direction", "account_no", "counterparty",
              "counterparty_type", "amount", "transaction_method"]
@@ -71,6 +71,93 @@ def spike_breakdown(df: pd.DataFrame, month: str) -> dict:
                 in_count=len(gi), out_count=len(go),
                 senders=rank(gi, gi.amount.sum()), beneficiaries=rank(go, go.amount.sum()),
                 evidence=gm[EVID_COLS].sort_values("amount", ascending=False))
+
+
+def _acc_masks(df, acc):
+    in_m = (df.direction == "in") & df.accounts.apply(lambda l: acc in l)
+    out_m = (df.direction == "out") & df.accounts.apply(lambda l: acc in l)
+    own_in = (df.direction == "own") & (df.account_to == acc)
+    own_out = (df.direction == "own") & (df.account_from == acc)
+    return in_m, out_m, own_in, own_out
+
+
+def account_details(df: pd.DataFrame) -> list[dict]:
+    """Per-account incoming / outgoing / current balance + spike detection
+    (based on the monthly inflow-vs-outflow series for that account)."""
+    accts = sorted(set(a for row in df.accounts for a in row))
+    out = []
+    for acc in accts:
+        in_m, out_m, own_in, own_out = _acc_masks(df, acc)
+        inflow = df[in_m].amount.sum() + df[own_in].amount.sum()
+        outflow = df[out_m].amount.sum() + df[own_out].amount.sum()
+        g = df[in_m | out_m | own_in | own_out]
+        months = sorted(g.month.unique())
+        mi, mo = [], []
+        for mth in months:
+            gm = g[g.month == mth]
+            mi.append(gm[(gm.direction == "in") | ((gm.direction == "own") & (gm.account_to == acc))].amount.sum())
+            mo.append(gm[(gm.direction == "out") | ((gm.direction == "own") & (gm.account_from == acc))].amount.sum())
+        spike_months = []
+        if len(months) >= 3:
+            mi_a, mo_a = np.array(mi), np.array(mo)
+            for i, mth in enumerate(months):
+                if mi_a[i] > mi_a.mean() + 1.2 * mi_a.std() or mo_a[i] > mo_a.mean() + 1.2 * mo_a.std():
+                    spike_months.append(mth)
+        out.append(dict(account=acc, inflow=inflow, outflow=outflow,
+                        balance=inflow - outflow, count=int((in_m | out_m | own_in | own_out).sum()),
+                        spike=bool(spike_months), spike_months=spike_months))
+    return out
+
+
+def account_spike_txns(df: pd.DataFrame, acc: str, months: list[str]) -> pd.DataFrame:
+    """Transactions in an account's spike months, labelled IN/OUT for that account."""
+    in_m, out_m, own_in, own_out = _acc_masks(df, acc)
+    g = df[(in_m | out_m | own_in | own_out) & df.month.isin(months)].copy()
+    def flow(r):
+        if r["direction"] == "in" or (r["direction"] == "own" and r["account_to"] == acc):
+            return "IN"
+        return "OUT"
+    g["flow"] = g.apply(flow, axis=1)
+    g["party"] = g.apply(lambda r: (r["account_from"] if r["flow"] == "IN" and r["direction"] == "own"
+                                    else r["account_to"] if r["direction"] == "own"
+                                    else r["counterparty"]), axis=1)
+    return g[["date", "month", "flow", "party", "counterparty_type", "amount",
+              "transaction_method"]].sort_values("date")
+
+
+def account_top(df: pd.DataFrame, acc: str, direction: str, n: int = 5) -> list[dict]:
+    """Top-n external senders (direction='in') or receivers ('out') for an account."""
+    in_m, out_m, _, _ = _acc_masks(df, acc)
+    g = df[(in_m if direction == "in" else out_m) &
+           (~df.counterparty_type.isin(["POI", "Internal"]))]
+    if g.empty:
+        return []
+    r = (g.groupby(["counterparty", "counterparty_type"])
+         .agg(amount=("amount", "sum"), count=("amount", "size")).reset_index()
+         .sort_values("amount", ascending=False).head(n))
+    return [dict(name=x.counterparty, type=x.counterparty_type, amount=x.amount,
+                 count=int(x.count)) for x in r.itertuples()]
+
+
+def multi_account_counterparties(df: pd.DataFrame, min_accounts: int = 2) -> list[dict]:
+    """Counterparties that moved money with the POI across several of the POI's
+    accounts (a spreading pattern). Returns one row per counterparty with the
+    set of POI accounts touched, type, direction and totals."""
+    ext = df[(~df.counterparty_type.isin(["POI", "Internal"])) & (df.counterparty != "Unknown")]
+    rows = []
+    for cp, g in ext.groupby("counterparty"):
+        accts = sorted(set(g.account_from) | set(g.account_to))
+        accts = [a for a in accts if a]
+        if len(accts) < min_accounts:
+            continue
+        inflow = g[g.direction == "in"].amount.sum()
+        outflow = g[g.direction == "out"].amount.sum()
+        direction = ("both" if inflow > 0 and outflow > 0 else "in" if inflow > 0 else "out")
+        rows.append(dict(counterparty=cp, type=g.counterparty_type.iat[0],
+                         n_accounts=len(accts), accounts=accts, inflow=inflow,
+                         outflow=outflow, direction=direction, count=len(g)))
+    rows.sort(key=lambda r: (r["n_accounts"], r["inflow"] + r["outflow"]), reverse=True)
+    return rows
 
 
 def _f(key, title, icon, level, conf, weight, why, basis, evidence, metric=None):
