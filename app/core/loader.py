@@ -29,8 +29,12 @@ ALIASES = {
     "account_no": "account_no", "account": "account_no", "account no": "account_no",
     "account number": "account_no", "accounts": "account_no", "poi_account": "account_no",
     "sender": "sender", "originator": "sender", "from": "sender", "payer": "sender",
+    "sender_name": "sender_name", "sender name": "sender_name",
+    "originator_name": "sender_name", "payer_name": "sender_name",
     "beneficiary": "beneficiary", "to": "beneficiary", "payee": "beneficiary",
     "receiver": "beneficiary",
+    "beneficiary_name": "beneficiary_name", "beneficiary name": "beneficiary_name",
+    "receiver_name": "beneficiary_name", "payee_name": "beneficiary_name",
     "amount": "amount", "value": "amount", "amt": "amount",
     "transaction_method": "transaction_method", "method": "transaction_method",
     "channel": "transaction_method",
@@ -52,10 +56,12 @@ ALIASES = {
 REQUIRED = ["date", "direction", "account_no", "sender", "beneficiary",
             "amount", "transaction_method"]
 TYPE_COLS = ["sender_type", "beneficiary_type"]
+NAME_COLS = ["sender_name", "beneficiary_name"]
 ACCT_COLS = ["sender_account", "beneficiary_account", "counterparty_account"]
-# canonical full schema (for downloads / templates)
-SCHEMA = ["date", "direction", "account_no", "sender", "sender_type", "sender_account",
-          "beneficiary", "beneficiary_type", "beneficiary_account", "amount", "transaction_method"]
+# canonical full schema (for downloads / templates); sender/beneficiary hold the
+# counterparty *account* and sender_name/beneficiary_name the display name.
+SCHEMA = ["date", "direction", "account_no", "sender", "sender_name", "sender_type",
+          "beneficiary", "beneficiary_name", "beneficiary_type", "amount", "transaction_method"]
 
 
 def export_columns(df: pd.DataFrame) -> list[str]:
@@ -134,10 +140,12 @@ def normalise(df: pd.DataFrame) -> pd.DataFrame:
             f"CSV is missing required column(s): {', '.join(missing)}.\n"
             f"Expected: {', '.join(REQUIRED)}")
 
-    keep = REQUIRED + [c for c in TYPE_COLS + ACCT_COLS if c in df.columns]
+    keep = REQUIRED + [c for c in TYPE_COLS + NAME_COLS + ACCT_COLS if c in df.columns]
     df = df[keep].copy()
     has_stype = "sender_type" in df.columns
     has_btype = "beneficiary_type" in df.columns
+    has_sname = "sender_name" in df.columns
+    has_bname = "beneficiary_name" in df.columns
     has_sacc = "sender_account" in df.columns
     has_bacc = "beneficiary_account" in df.columns
     has_cacc = "counterparty_account" in df.columns
@@ -155,38 +163,49 @@ def normalise(df: pd.DataFrame) -> pd.DataFrame:
     df["account_to"] = df["accounts"].apply(lambda a: a[1] if len(a) > 1 else a[0] if a else "")
     df["primary_account"] = df["account_from"]
 
-    s_name, s_type, b_name, b_type = [], [], [], []
+    # Resolve each side. When sender_name is present, `sender` holds the
+    # counterparty ACCOUNT and sender_name the display name; otherwise `sender`
+    # itself is the name (legacy files). Raw name columns are preserved.
+    s_disp, s_type, s_acct = [], [], []
+    b_disp, b_type, b_acct = [], [], []
     for _, r in df.iterrows():
-        sn, stp = _entity(r["sender"], r["sender_type"] if has_stype else None)
-        bn, btp = _entity(r["beneficiary"], r["beneficiary_type"] if has_btype else None)
-        s_name.append(sn); s_type.append(stp)
-        b_name.append(bn); b_type.append(btp)
-    # normalized (derived) types overwrite/create the *_type columns
-    df["sender_name"], df["sender_type"] = s_name, s_type
-    df["beneficiary_name"], df["beneficiary_type"] = b_name, b_type
+        s_rawname = r["sender_name"] if has_sname else r["sender"]
+        sd, st_ = _entity(s_rawname, r["sender_type"] if has_stype else None)
+        sa = (str(r["sender"]).strip() if has_sname
+              else (str(r["sender_account"]).strip() if has_sacc else ""))
+        s_disp.append(sd); s_type.append(st_)
+        s_acct.append("" if st_ in ("POI",) or sa.lower() in ("nan", "poi", "") else sa)
 
-    # POI-relative counterparty
-    def counterparty(r):
+        b_rawname = r["beneficiary_name"] if has_bname else r["beneficiary"]
+        bd, bt_ = _entity(b_rawname, r["beneficiary_type"] if has_btype else None)
+        ba = (str(r["beneficiary"]).strip() if has_bname
+              else (str(r["beneficiary_account"]).strip() if has_bacc else ""))
+        b_disp.append(bd); b_type.append(bt_)
+        b_acct.append("" if bt_ in ("POI",) or ba.lower() in ("nan", "poi", "") else ba)
+
+    df["sender_type"] = s_type
+    df["beneficiary_type"] = b_type
+    if not has_sname:
+        df["sender_name"] = s_disp
+    if not has_bname:
+        df["beneficiary_name"] = b_disp
+    # POI-relative counterparty (name / type / account)
+    cp_name, cp_type, cp_acct = [], [], []
+    for i, (_, r) in enumerate(df.iterrows()):
         if r["direction"] == "own":
-            return ("Internal transfer", "Internal")
-        if r["direction"] == "in":
-            return (r["sender_name"], r["sender_type"])
-        return (r["beneficiary_name"], r["beneficiary_type"])
-
-    cp = df.apply(counterparty, axis=1, result_type="expand")
-    df["counterparty"] = cp[0]
-    df["counterparty_type"] = cp[1]
-
-    # counterparty's own account number (the non-POI side), when supplied
-    def cp_acct(r):
-        if has_cacc and str(r.get("counterparty_account", "")).strip() not in ("", "nan"):
-            return str(r["counterparty_account"]).strip()
-        if r["direction"] == "in" and has_sacc:
-            return str(r.get("sender_account", "")).strip()
-        if r["direction"] == "out" and has_bacc:
-            return str(r.get("beneficiary_account", "")).strip()
-        return ""
-    df["counterparty_account"] = df.apply(cp_acct, axis=1).replace({"nan": ""})
+            cp_name.append("Internal transfer"); cp_type.append("Internal"); cp_acct.append("")
+        elif r["direction"] == "in":
+            cp_name.append(s_disp[i]); cp_type.append(s_type[i]); cp_acct.append(s_acct[i])
+        else:
+            cp_name.append(b_disp[i]); cp_type.append(b_type[i]); cp_acct.append(b_acct[i])
+    df["counterparty"] = cp_name
+    df["counterparty_type"] = cp_type
+    if has_cacc:
+        df["counterparty_account"] = df["counterparty_account"].astype(str).replace({"nan": ""})
+        df.loc[df["counterparty_account"].isin(["", "nan"]), "counterparty_account"] = pd.Series(cp_acct, index=df.index)
+    else:
+        df["counterparty_account"] = cp_acct
+    df.drop(columns=["_s_acct", "_b_acct"], inplace=True, errors="ignore")
 
     # period helpers
     df["year"] = df["date"].dt.year
@@ -236,11 +255,21 @@ def sample_dataframe(seed: int = 7) -> pd.DataFrame:
             cp_accounts[name] = f"CP-{_acc_counter[0]:04d}"
         return cp_accounts[name]
 
+    def side(name_arg, poi_acct):
+        n = str(name_arg).strip().lower()
+        if n == "poi":
+            return (poi_acct, "poi", "person")       # (account, name, type)
+        if n in ("unknown", "unknow", ""):
+            return ("", "unknown", "unknown")
+        return (cpacct(name_arg), name_arg, etype(name_arg))
+
     def add(d, direction, acct, sender, beneficiary, amount, method):
+        poi_acct = str(acct).split("|")[0]
+        sa, sn, st_ = side(sender, poi_acct)
+        ba, bn, bt_ = side(beneficiary, poi_acct)
         rows.append(dict(date=d, direction=direction, account_no=acct,
-                         sender=sender, sender_type=etype(sender), sender_account=cpacct(sender),
-                         beneficiary=beneficiary, beneficiary_type=etype(beneficiary),
-                         beneficiary_account=cpacct(beneficiary),
+                         sender=sa, sender_name=sn, sender_type=st_,
+                         beneficiary=ba, beneficiary_name=bn, beneficiary_type=bt_,
                          amount=round(float(amount), 2), transaction_method=method))
 
     employer = "Meridian Logistics FZE"
@@ -349,22 +378,16 @@ def sample_csv_bytes(seed: int = 7) -> bytes:
     df = sample_dataframe(seed)
     vocab = {"POI": "person", "Person": "person", "Company": "company",
              "Unknown": "unknown", "Internal": "unknown"}
-    def sacc(r):
-        return r["counterparty_account"] if r["direction"] == "in" else ""
-
-    def bacc(r):
-        return r["counterparty_account"] if r["direction"] == "out" else ""
-
     out = pd.DataFrame({
         "date": pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d"),
         "direction": df["direction"].map({"in": "in", "out": "out", "own": "own_account"}),
         "account_no": df["account_no"],
-        "sender": df["sender"],
-        "sender_type": df["sender_type"].map(vocab).fillna("company"),
-        "sender_account": df.apply(sacc, axis=1),
+        "sender": df["sender"],                      # counterparty / POI account
+        "sender_name": df["sender_name"],            # display name
+        "sender_type": df["sender_type"].map(vocab).fillna("unknown"),
         "beneficiary": df["beneficiary"],
-        "beneficiary_type": df["beneficiary_type"].map(vocab).fillna("company"),
-        "beneficiary_account": df.apply(bacc, axis=1),
+        "beneficiary_name": df["beneficiary_name"],
+        "beneficiary_type": df["beneficiary_type"].map(vocab).fillna("unknown"),
         "amount": df["amount"],
         "transaction_method": df["transaction_method"],
     })

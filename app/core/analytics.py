@@ -114,20 +114,24 @@ def account_details(df: pd.DataFrame) -> list[dict]:
     return out
 
 
+SCHEMA_COLS = ["date", "direction", "account_no", "sender", "sender_name", "sender_type",
+               "beneficiary", "beneficiary_name", "beneficiary_type", "amount",
+               "transaction_method"]
+
+
 def account_spike_txns(df: pd.DataFrame, acc: str, months: list[str]) -> pd.DataFrame:
-    """Transactions in an account's spike months, labelled IN/OUT for that account."""
+    """Transactions in an account's spike months (ALL dataset columns), plus an
+    IN/OUT flag relative to this account."""
     in_m, out_m, own_in, own_out = _acc_masks(df, acc)
     g = df[(in_m | out_m | own_in | own_out) & df.month.isin(months)].copy()
+
     def flow(r):
         if r["direction"] == "in" or (r["direction"] == "own" and r["account_to"] == acc):
             return "IN"
         return "OUT"
     g["flow"] = g.apply(flow, axis=1)
-    g["party"] = g.apply(lambda r: (r["account_from"] if r["flow"] == "IN" and r["direction"] == "own"
-                                    else r["account_to"] if r["direction"] == "own"
-                                    else r["counterparty"]), axis=1)
-    return g[["date", "month", "flow", "party", "counterparty_type", "amount",
-              "transaction_method"]].sort_values("date")
+    cols = [c for c in SCHEMA_COLS if c in g.columns]
+    return g[["flow"] + cols].sort_values("date")
 
 
 def account_top(df: pd.DataFrame, acc: str, direction: str, n: int = 5) -> list[dict]:

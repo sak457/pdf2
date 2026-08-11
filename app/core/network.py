@@ -205,16 +205,19 @@ def figure(df, entity_risk, annotations, t, highlight=None, height=560, focus=No
     return fig
 
 
-def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en") -> str:
+def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en", cp_info=None) -> str:
     """Interactive vis.js graph (drag / zoom / hover / click-to-focus).
 
     Self-contained HTML (inline JS) suitable for st.components.v1.html. Clicking
     a node isolates it and its direct links; clicking empty space resets.
+    ``cp_info`` maps a counterparty (member) name -> its editable card dict, so
+    hovering a sender/beneficiary node shows the full counterparty card.
     """
     import json
     from pyvis.network import Network
     from .analytics import money
 
+    cp_info = cp_info or {}
     H, vol, node_type = _build(df, entity_risk, annotations)
     ar = lang == "ar"
     net = Network(height=f"{height}px", width="100%", bgcolor=t["page"],
@@ -233,7 +236,21 @@ def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en") -> str:
         nt = node_type[n]
         size = 16 + 40 * (vol.get(n, 0) / mx)
         er = entity_risk.get(n, {})
+        card = cp_info.get(n)
+        if card:  # counterparty card — show its details on hover
+            disp = card.get("name") or disp
         tip = [disp, f"{tlabel.get(nt, nt)}"]
+        if card:
+            if card.get("account"):
+                tip.append((("الحساب: " if ar else "Account #: ") + str(card["account"])))
+            if card.get("type"):
+                tip.append((("النوع: " if ar else "Type: ") + str(card["type"])))
+            tip.append((("OSINT: " + ("نعم" if card.get("osint") else "لا")) if ar
+                        else ("OSINT: " + ("yes" if card.get("osint") else "no"))))
+            if card.get("functions"):
+                tip.append((("OSINT: " if ar else "OSINT: ") + str(card["functions"])[:160]))
+            tip.append((("وارد/صادر: " if ar else "In / Out: ")
+                        + f"{money(card.get('total_in', 0))} / {money(card.get('total_out', 0))}"))
         if vol.get(n):
             tip.append((("الحجم: " if ar else "Volume: ") + money(vol[n])))
         if er:

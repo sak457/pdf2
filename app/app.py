@@ -112,7 +112,7 @@ def reconcile_cp(agg):
         if nm not in existing:
             ss.cp_groups.append(dict(id=ss.cp_next_id, members=[nm], name=nm,
                                      account=" | ".join(agg[nm]["accounts"]),
-                                     type="", functions=""))
+                                     type="", functions="", osint=False))
             ss.cp_next_id += 1
     for g in ss.cp_groups:
         g["members"] = [m for m in g["members"] if m in agg]
@@ -128,8 +128,8 @@ def cp_card(g, agg):
     accts = sorted({a for m in members for a in agg[m]["accounts"]})
     return dict(id=g["id"], members=members, name=g["name"],
                 account=g["account"] or " | ".join(accts), type=g["type"],
-                functions=g["functions"], tclass=tclass, total_in=ti, total_out=to,
-                total=ti + to)
+                functions=g["functions"], osint=g.get("osint", False), tclass=tclass,
+                total_in=ti, total_out=to, total=ti + to)
 
 
 # --------------------------------------------------------------------------- #
@@ -443,13 +443,13 @@ elif sec == "accounts":
         for a in spiky:
             stx = analytics.account_spike_txns(d, a["account"], a["spike_months"])
             with st.expander(L("spike_view").format(acc=a["account"], n=len(stx))):
-                sh = stx.copy(); sh["date"] = sh["date"].dt.strftime("%Y-%m-%d")
+                sh = stx.copy()
+                sh["date"] = pd.to_datetime(sh["date"]).dt.strftime("%Y-%m-%d")
                 sh["flow"] = sh["flow"].map(lambda x: ("🟢 " + L("flow_in")) if x == "IN" else ("🔴 " + L("flow_out")))
-                sh["amount"] = sh["amount"].map(lambda x: f"{x:,.0f}")
-                sh = sh.rename(columns={"date": L("col_date"), "month": L("quarter"), "flow": L("col_flow"),
-                                        "party": L("col_party"), "counterparty_type": L("cp_type"),
-                                        "amount": L("col_amount"), "transaction_method": L("col_method")})
-                st.dataframe(sh, use_container_width=True, hide_index=True, height=min(320, 44 + 28 * len(sh)))
+                if "amount" in sh:
+                    sh["amount"] = sh["amount"].map(lambda x: f"{x:,.0f}")
+                sh = sh.rename(columns={"flow": L("col_flow")})  # all dataset columns kept
+                st.dataframe(sh, use_container_width=True, hide_index=True, height=min(340, 44 + 28 * len(sh)))
 
     st.markdown(f"##### 👥 {L('acc_top_title')}")
     for a in ad:
@@ -528,12 +528,15 @@ elif sec == "cp":
     st.divider()
     st.markdown(f"##### 🪪 {L('cp_cards_title')} "
                 f"<span class='muted'>· {len(CP_CARDS)} {L('cp_count')}</span>", unsafe_allow_html=True)
-    fcol = st.columns([0.34, 0.3, 0.18, 0.18])
+    fcol = st.columns([0.3, 0.26, 0.28, 0.16])
     flow = fcol[0].segmented_control(
         L("cp_flow"), [L("cp_flow_all"), L("cp_flow_in"), L("cp_flow_out"), L("cp_flow_both")],
         default=L("cp_flow_all"), key="cp_flow_sel")
     sort_by = fcol[1].selectbox(L("cp_sort"), [L("cp_sort_in"), L("cp_sort_out"), L("cp_sort_name")], key="cp_sort_sel")
-    desc = fcol[2].toggle(L("cp_desc"), value=True, key="cp_desc_sel")
+    osint_f = fcol[2].segmented_control(
+        L("cp_osint_filter"), [L("cp_osint_all"), L("cp_osint_yes"), L("cp_osint_no")],
+        default=L("cp_osint_all"), key="cp_osint_sel")
+    desc = fcol[3].toggle(L("cp_desc"), value=True, key="cp_desc_sel")
 
     # merge control
     label_of = {f"{c['name']} · {c['account'] or '—'}  [#{c['id']}]": c["id"] for c in CP_CARDS}
@@ -546,7 +549,8 @@ elif sec == "cp":
         first = groups[0]
         newg = dict(id=ss.cp_next_id, members=members, name=first["name"], account=accts,
                     type=first["type"] or next((g["type"] for g in groups if g["type"]), ""),
-                    functions=first["functions"] or next((g["functions"] for g in groups if g["functions"]), ""))
+                    functions=first["functions"] or next((g["functions"] for g in groups if g["functions"]), ""),
+                    osint=any(g.get("osint") for g in groups))
         ss.cp_next_id += 1
         ss.cp_groups = [g for g in ss.cp_groups if g["id"] not in ids] + [newg]
         st.rerun()
@@ -559,6 +563,10 @@ elif sec == "cp":
         cards = [c for c in cards if c["total_out"] > 0]
     elif flow == L("cp_flow_both"):
         cards = [c for c in cards if c["total_in"] > 0 and c["total_out"] > 0]
+    if osint_f == L("cp_osint_yes"):
+        cards = [c for c in cards if c["osint"]]
+    elif osint_f == L("cp_osint_no"):
+        cards = [c for c in cards if not c["osint"]]
     keyf = {L("cp_sort_in"): lambda c: c["total_in"], L("cp_sort_out"): lambda c: c["total_out"],
             L("cp_sort_name"): lambda c: c["name"].lower()}[sort_by]
     cards = sorted(cards, key=keyf, reverse=desc if sort_by != L("cp_sort_name") else not desc)
@@ -579,8 +587,9 @@ elif sec == "cp":
                 g["account"] = st.text_input(L("cp_account"), value=g["account"], key=f"cpa_{c['id']}")
                 g["type"] = st.text_input(L("cp_type_field"), value=g["type"], key=f"cpt_{c['id']}",
                                           placeholder=L("cp_fill"))
-                g["functions"] = st.text_input(L("cp_functions"), value=g["functions"], key=f"cpf_{c['id']}",
-                                               placeholder=L("cp_fill"))
+                g["osint"] = st.toggle(f"🔎 {L('cp_osint')}", value=g.get("osint", False), key=f"cpo_{c['id']}")
+                g["functions"] = st.text_area(L("cp_functions"), value=g["functions"], key=f"cpf_{c['id']}",
+                                              placeholder=L("cp_fill"), height=80)
                 st.markdown(
                     f"<div style='display:flex;gap:8px;margin-top:4px'>"
                     f"<div style='flex:1;background:{t['green']}1e;border:1px solid {t['green']}66;border-radius:8px;padding:6px 9px'>"
@@ -628,7 +637,9 @@ elif sec == "net":
         f"{swatch(shape, c)}{lab}</span>" for shape, c, lab in lg)
     st.markdown(f"<div class='card' style='padding:10px 14px'>{chips}</div>", unsafe_allow_html=True)
     st.caption("🖱️ " + L("net_help"))
-    html = network.pyvis_html(d, R["entity_risk"], ss.nodes, t, height=620, lang=lang)
+    cp_by_member = {m: c for c in CP_CARDS for m in c["members"]}
+    html = network.pyvis_html(d, R["entity_risk"], ss.nodes, t, height=620, lang=lang,
+                              cp_info=cp_by_member)
     components.html(html, height=650, scrolling=False)
     u = network.node_universe(d)
     lc1, lc2 = st.columns(2)
