@@ -20,8 +20,12 @@ pip install -r requirements-app.txt
 streamlit run app/app.py
 ```
 
-Then open the browser tab it prints. Click **Load sample** (sidebar) to explore
-immediately, or upload your own CSV.
+Then open the browser tab it prints and **log in**. On first launch the app
+creates an admin account from the environment (see *Deployment & configuration*
+below); with nothing set the default is **`admin` / `admin`** and the login
+screen warns you to change it. After logging in, click **Load sample** (sidebar)
+to explore immediately, or upload your own CSV — **each upload becomes a saved
+work session** that persists everything you do.
 
 **Input CSV schema** (case-insensitive headers; common aliases tolerated):
 
@@ -61,12 +65,46 @@ immediately, or upload your own CSV.
 Wording is deliberately non-accusatory — every flag is a *potential indicator
 requiring review*, not an allegation.
 
-**Run in Docker** (slim — no system Chromium needed):
+### Accounts, sessions & persistence
+
+- **Login** — accounts live in a SQLite DB; passwords are PBKDF2-hashed. Admins
+  are designated by the `AML_ADMIN_USERS` env var (they see everyone's sessions
+  and can wipe all data); everyone else sees only their own work.
+- **Sessions** — every CSV upload or *Load sample* creates a **work session**
+  that stores the data plus a snapshot of everything you do (POI + photo,
+  counterparty-card edits/merges/OSINT, node annotations, removed findings,
+  hidden KPIs, BLUF, chat). Work **autosaves** continuously.
+- **Manage** — the sidebar lists your sessions to open/rename/delete; admins get
+  a user-management panel (add / reset password / delete) and a *wipe all
+  sessions & data* action gated by a typed `DELETE ALL` (user accounts are kept).
+
+### Deployment & configuration
+
+Set these environment variables when you deploy (all optional; sensible
+defaults, but **set a real admin password in production**):
+
+| variable | purpose | default |
+|----------|---------|---------|
+| `AML_ADMIN_USERS` | comma-separated admin usernames | `admin` |
+| `AML_ADMIN_PASSWORD` | password for the bootstrapped admin(s) on first run | `admin` (a "change me" warning shows until set) |
+| `AML_DB_PATH` | SQLite database file path — put it on a persistent volume | `app/data/aml.db` (`/data/aml.db` in Docker) |
+
+**Run in Docker** (slim — no system Chromium needed; DB on a named volume so it
+survives restarts):
 
 ```bash
 docker buildx build --platform linux/amd64 -f Dockerfile.app -t aml-dashboard:1.0 --load .
-docker run --rm -p 8501:8501 aml-dashboard:1.0     # http://localhost:8501
+
+docker volume create aml-data
+docker run --rm -p 8501:8501 \
+    -v aml-data:/data \
+    -e AML_ADMIN_USERS=admin \
+    -e AML_ADMIN_PASSWORD='change-me-please' \
+    aml-dashboard:1.0                         # http://localhost:8501
 ```
+
+The database (users + all saved work sessions) lives at `/data/aml.db` inside the
+container; the `-v aml-data:/data` mount keeps it across restarts and upgrades.
 
 ---
 
