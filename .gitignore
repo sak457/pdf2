@@ -4,3 +4,9 @@ __pycache__/
 venv/
 output/preview.png
 .DS_Store
+
+# app database (SQLite)
+app/data/
+*.db
+*.db-wal
+*.db-shm

@@ -20,7 +20,9 @@ import streamlit as st
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core import loader, analytics, charts, network, pptx_export, chat, i18n, auth
+from datetime import datetime
+
+from core import loader, analytics, charts, network, pptx_export, chat, i18n, auth, db, cards
 from core.theme import theme, app_css, IC
 from core.i18n import T as _T, info_text, typ_title, typ_plain
 
@@ -52,6 +54,9 @@ def _init():
     s.setdefault("bluf_edit", False)
     s.setdefault("cp_groups", [])
     s.setdefault("cp_next_id", 1)
+    s.setdefault("db_session_id", None)
+    s.setdefault("last_saved_hash", None)
+    s.setdefault("last_upload_id", None)
 
 
 _init()
@@ -60,6 +65,11 @@ lang = ss.lang
 t = theme(ss.theme)
 st.markdown(app_css(t), unsafe_allow_html=True)
 st.markdown(i18n.rtl_css(lang), unsafe_allow_html=True)
+
+# initialise the database once per process; remember if the default admin
+# password was used so the login/admin screens can warn about it.
+if "default_admin_pw" not in ss:
+    ss.default_admin_pw = db.init_db()
 
 
 def L(key):
@@ -133,6 +143,83 @@ def cp_card(g, agg):
 
 
 # --------------------------------------------------------------------------- #
+#  Work-session persistence (SQLite)
+# --------------------------------------------------------------------------- #
+WORK_KEYS = ["poi", "poi_edit", "nodes", "analyst_note", "bluf_override", "df",
+             "data_name", "disabled", "chat", "tmpl", "kpi_hidden", "bluf_edit",
+             "cp_groups", "cp_next_id"]
+WIDGET_PREFIXES = ("cpn_", "cpa_", "cpt_", "cpo_", "cpf_", "cps_", "kp_", "rm_", "rs_", "ev_")
+WIDGET_KEYS = {"bluf_ta", "cp_merge_sel", "node_pick", "na", "nb", "np", "navseg",
+               "cp_flow_sel", "cp_sort_sel", "cp_osint_sel", "cp_desc_sel", "focusnode"}
+
+
+def autosave():
+    """Persist the current work state to the active DB session, but only when it
+    actually changed (hash-gated → zero writes on idle reruns)."""
+    sid = ss.get("db_session_id")
+    if not sid:
+        return
+    try:
+        js, h = db.serialize_state(ss)
+        if h != ss.get("last_saved_hash"):
+            db.save_state(sid, js, h)
+            ss.last_saved_hash = h
+    except Exception:
+        pass
+
+
+def reset_work_state():
+    for k in WORK_KEYS:
+        ss.pop(k, None)
+    for k in [k for k in list(ss.keys())
+              if str(k).startswith(WIDGET_PREFIXES) or k in WIDGET_KEYS]:
+        ss.pop(k, None)
+    _init()
+
+
+def open_db_session(sid):
+    autosave()  # flush current work before switching
+    try:
+        row, ndf = db.load_session(sid, ss.user)
+    except Exception as e:
+        st.error(str(e)); return
+    reset_work_state()
+    ss.df, ss.data_name = ndf, row["name"]
+    js = db.load_state(sid)
+    if js:
+        db.restore_state(ss, js)
+    ss.db_session_id = sid
+    ss.last_saved_hash = db.serialize_state(ss)[1]
+    st.rerun()
+
+
+def start_new_session(ndf, name):
+    autosave()
+    reset_work_state()
+    ss.df, ss.data_name = ndf, name
+    ss.db_session_id = db.create_session(ss.user, name, ndf)
+    ss.last_saved_hash = None
+    st.rerun()
+
+
+def cp_lookup_panel(key):
+    """Type-to-search an account # or name → render its counterparty card
+    (read-only). Uses the global CP_CARDS computed for the current scope."""
+    st.markdown(f"**🪪 {L('lookup_title')}**")
+    opts = {}
+    for c in sorted(CP_CARDS, key=lambda c: c["name"].lower()):
+        for a in [x.strip() for x in (c["account"] or "").split("|") if x.strip()]:
+            opts.setdefault(f"{a} — {c['name']}", c)
+        opts.setdefault(c["name"], c)
+    sel = st.selectbox(L("lookup_pick"), list(opts), index=None,
+                       placeholder=L("lookup_ph"), key=key, label_visibility="collapsed")
+    if sel:
+        st.markdown(cards.cp_card_html(opts[sel], t, lang, max_width=360), unsafe_allow_html=True)
+    else:
+        st.caption(L("lookup_none"))
+
+
+# --------------------------------------------------------------------------- #
 #  Sidebar
 # --------------------------------------------------------------------------- #
 with st.sidebar:
@@ -146,18 +233,65 @@ with st.sidebar:
     auth.logout_button(lang)
 
     st.divider()
-    st.markdown(f"**{IC['upload']} {L('data_source')}**")
-    up = st.file_uploader(L("upload_csv"), type=["csv"])
+    # ---- saved work sessions ----
+    st.markdown(f"**💾 {L('my_sessions') if not ss.get('is_admin') else L('all_sessions')}**")
+    _sessions = db.list_sessions(ss.user)
+    if _sessions:
+        _labels = {}
+        for r in _sessions:
+            lab = f"{r['name']}  ·  {r['updated_at'][5:16]}"
+            if ss.get("is_admin"):
+                lab += f"  ·  👤{r['username']}"
+            _labels[lab] = r["id"]
+        _cur_label = next((l for l, i in _labels.items() if i == ss.get("db_session_id")), None)
+        pick = st.selectbox(L("my_sessions"), list(_labels),
+                            index=list(_labels).index(_cur_label) if _cur_label else None,
+                            placeholder="—", label_visibility="collapsed", key="sess_pick")
+        if pick and _labels[pick] != ss.get("db_session_id"):
+            open_db_session(_labels[pick])
+        # active-session controls
+        if ss.get("db_session_id"):
+            oc1, oc2 = st.columns(2)
+            with oc1.popover(f"✏️ {L('session_rename')}", use_container_width=True):
+                nn = st.text_input(L("session_rename"), value=ss.get("data_name", ""), key="sess_rename")
+                if st.button(L("save"), use_container_width=True, key="sess_rename_btn"):
+                    db.rename_session(ss.db_session_id, nn, ss.user)
+                    ss.data_name = nn; st.rerun()
+            with oc2.popover(f"🗑️ {L('session_delete')}", use_container_width=True):
+                if st.checkbox(L("confirm_delete"), key="sess_del_confirm") and \
+                        st.button(f"🗑️ {L('session_delete')}", type="primary", use_container_width=True, key="sess_del_btn"):
+                    db.delete_session(ss.db_session_id, ss.user)
+                    reset_work_state(); ss.db_session_id = None; st.rerun()
+    else:
+        st.caption(L("no_sessions"))
+
+    st.markdown(f"**{IC['upload']} {L('new_session')}**")
+    up = st.file_uploader(L("upload_csv"), type=["csv"], key="uploader")
     c1, c2 = st.columns(2)
     if c1.button(L("load_sample"), use_container_width=True):
-        ss.df = loader.sample_dataframe(); ss.data_name = "sample_transactions.csv"
+        start_new_session(loader.sample_dataframe(), f"sample · {datetime.now():%Y-%m-%d %H:%M}")
     c2.download_button(L("sample_csv"), loader.sample_csv_bytes(),
                        "sample_transactions.csv", "text/csv", use_container_width=True)
-    if up is not None:
+    if up is not None and getattr(up, "file_id", up.name) != ss.get("last_upload_id"):
+        ss.last_upload_id = getattr(up, "file_id", up.name)
         try:
-            ss.df = loader.read_csv(up); ss.data_name = up.name
+            start_new_session(loader.read_csv(up), f"{up.name} · {datetime.now():%Y-%m-%d %H:%M}")
         except Exception as e:
             st.error(str(e))
+
+    # ---- admin panel ----
+    if ss.get("is_admin"):
+        st.divider()
+        with st.expander(f"👑 {L('admin_panel')}"):
+            auth.admin_users_panel(lang)
+            st.divider()
+            st.markdown(f"**⚠ {L('wipe_db')}**")
+            phrase = st.text_input(L("wipe_phrase"), key="wipe_phrase")
+            if st.button(f"🗑️ {L('wipe_btn')}", type="primary", disabled=phrase != "DELETE ALL",
+                         use_container_width=True):
+                db.wipe_all_sessions()
+                reset_work_state(); ss.db_session_id = None
+                st.success(L("wipe_done")); st.rerun()
 
 if ss.lang != lang:  # language just changed → rerun with new strings
     st.rerun()
@@ -440,16 +574,20 @@ elif sec == "accounts":
     spiky = [a for a in ad if a["spike"]]
     if spiky:
         st.markdown(f"##### ⚡ {L('spike_txns_title')}")
-        for a in spiky:
-            stx = analytics.account_spike_txns(d, a["account"], a["spike_months"])
-            with st.expander(L("spike_view").format(acc=a["account"], n=len(stx))):
-                sh = stx.copy()
-                sh["date"] = pd.to_datetime(sh["date"]).dt.strftime("%Y-%m-%d")
-                sh["flow"] = sh["flow"].map(lambda x: ("🟢 " + L("flow_in")) if x == "IN" else ("🔴 " + L("flow_out")))
-                if "amount" in sh:
-                    sh["amount"] = sh["amount"].map(lambda x: f"{x:,.0f}")
-                sh = sh.rename(columns={"flow": L("col_flow")})  # all dataset columns kept
-                st.dataframe(sh, use_container_width=True, hide_index=True, height=min(340, 44 + 28 * len(sh)))
+        scol1, scol2 = st.columns([0.72, 0.28])
+        with scol1:
+            for a in spiky:
+                stx = analytics.account_spike_txns(d, a["account"], a["spike_months"])
+                with st.expander(L("spike_view").format(acc=a["account"], n=len(stx))):
+                    sh = stx.copy()
+                    sh["date"] = pd.to_datetime(sh["date"]).dt.strftime("%Y-%m-%d")
+                    sh["flow"] = sh["flow"].map(lambda x: ("🟢 " + L("flow_in")) if x == "IN" else ("🔴 " + L("flow_out")))
+                    if "amount" in sh:
+                        sh["amount"] = sh["amount"].map(lambda x: f"{x:,.0f}")
+                    sh = sh.rename(columns={"flow": L("col_flow")})  # all dataset columns kept
+                    st.dataframe(sh, use_container_width=True, hide_index=True, height=min(340, 44 + 28 * len(sh)))
+        with scol2:
+            cp_lookup_panel("cp_lookup_acc")
 
     st.markdown(f"##### 👥 {L('acc_top_title')}")
     for a in ad:
@@ -737,10 +875,14 @@ elif sec == "txns":
                                     L("col_method"): x["method"].title(), L("col_amount"): analytics.money_full(x["amount"])}
                                    for x in R["top_out"]]), use_container_width=True, hide_index=True)
     st.markdown(f"##### 🧾 {L('all_txns')}")
-    full = d[analytics.EVID_COLS].copy(); full["date"] = full["date"].dt.strftime("%Y-%m-%d")
-    st.dataframe(full, use_container_width=True, hide_index=True, height=420)
-    st.download_button(f"⬇ {L('download_csv')}", d[loader.export_columns(d)].to_csv(index=False).encode(),
-                       "filtered_transactions.csv", "text/csv")
+    tcol1, tcol2 = st.columns([0.72, 0.28])
+    with tcol1:
+        full = d[analytics.EVID_COLS].copy(); full["date"] = full["date"].dt.strftime("%Y-%m-%d")
+        st.dataframe(full, use_container_width=True, hide_index=True, height=420)
+        st.download_button(f"⬇ {L('download_csv')}", d[loader.export_columns(d)].to_csv(index=False).encode(),
+                           "filtered_transactions.csv", "text/csv")
+    with tcol2:
+        cp_lookup_panel("cp_lookup_txn")
 
 # ---- Chat ----
 elif sec == "chat":
@@ -843,3 +985,6 @@ elif sec == "export":
                            type="primary")
 
 st.caption(f"{ss.data_name or '—'} · {len(d):,}/{len(df_all):,} · {L('footer')}")
+
+# persist any changes made during this run (hash-gated → no-op if unchanged)
+autosave()

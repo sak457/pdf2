@@ -216,6 +216,7 @@ def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en", cp_info=N
     import json
     from pyvis.network import Network
     from .analytics import money
+    from . import cards
 
     cp_info = cp_info or {}
     H, vol, node_type = _build(df, entity_risk, annotations)
@@ -261,7 +262,10 @@ def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en", cp_info=N
             tip.append(("ملاحظة: " if ar else "Note: ") + str(ann["notes"])[:80])
         col = tcolor.get(nt, t["blue"])
         border = t["red"] if er.get("band") == "High" else t["hair"]
-        kw = dict(label=disp, title="\n".join(tip), size=size,
+        # HTML tooltip: the real counterparty card for cp nodes, a styled simple
+        # tip otherwise. Converted to a DOM element client-side (see IIFE below).
+        title_html = cards.cp_card_html(card, t, lang) if card else cards.simple_tip_html(tip, t)
+        kw = dict(label=disp, title=title_html, size=size,
                   color={"background": col, "border": border,
                          "highlight": {"background": col, "border": t["amber"]}},
                   borderWidth=2, borderWidthSelected=4,
@@ -327,6 +331,17 @@ def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en", cp_info=N
         }
         var ORIG = {}; var snap = nodes.get({returnType:'Object'});
         for (var id in snap){ ORIG[id] = JSON.parse(JSON.stringify(snap[id].color || null)); }
+        // vis-network 9.x renders string titles as text; convert our HTML title
+        // strings into DOM elements so the counterparty card renders.
+        var conv = [];
+        for (var id in snap){
+          var ttl = snap[id].title;
+          if (typeof ttl === 'string' && ttl.charAt(0) === '<'){
+            var dv = document.createElement('div'); dv.innerHTML = ttl;
+            conv.push({id: id, title: dv});
+          }
+        }
+        if (conv.length) nodes.update(conv);
         network.on('stabilizationIterationsDone', function(){ network.fit({animation:true}); });
         network.on('click', function(p){
           var cur = nodes.get({returnType:'Object'}); var upd = [];
@@ -348,7 +363,11 @@ def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en", cp_info=N
     })();
     </script>
     """
-    return html.replace("</body>", focus_js + "</body>")
+    tooltip_css = ("<style>div.vis-tooltip{background:transparent!important;"
+                   "border:none!important;padding:0!important;box-shadow:none!important;"
+                   "white-space:normal!important;max-width:380px;"
+                   "font-family:Inter,sans-serif;}</style>")
+    return html.replace("</body>", tooltip_css + focus_js + "</body>")
 
 
 def edge_transactions(df: pd.DataFrame, a: str, b: str) -> pd.DataFrame:
