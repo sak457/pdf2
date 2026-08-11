@@ -140,15 +140,18 @@ def figure(df, entity_risk, annotations, t, highlight=None, height=560, focus=No
                 opacity=op, hoverinfo="skip", name=name,
                 showlegend=kind != "own_link"))
 
+    sym = {"POI": "star", "Account": "square", "Company": "circle",
+           "Person": "triangle-up", "Unknown": "diamond"}
     mx = max(vol.values()) if vol else 1
-    nx_, ny, sizes, colors, texts, labels, lines, halo_x, halo_y, halo_s, halo_c, opac = \
-        [], [], [], [], [], [], [], [], [], [], [], []
+    nx_, ny, sizes, colors, texts, labels, lines, halo_x, halo_y, halo_s, halo_c, opac, symbols = \
+        [], [], [], [], [], [], [], [], [], [], [], [], []
     for n in H.nodes:
         ann = annotations.get(n, {})
         disp = ann.get("display_name") or (n if n != POI else "POI (Subject)")
         size = 20 + 48 * (vol.get(n, 0) / mx)
         dim = connected is not None and n not in connected
         nx_.append(pos[n][0]); ny.append(pos[n][1]); sizes.append(size)
+        symbols.append(sym.get(node_type[n], "circle"))
         col = tcolor.get(node_type[n], t["blue"])
         colors.append(col)
         opac.append(0.18 if dim else 1.0)
@@ -180,7 +183,7 @@ def figure(df, entity_risk, annotations, t, highlight=None, height=560, focus=No
         x=nx_, y=ny, mode="markers+text", text=labels, textposition="bottom center",
         textfont=dict(color=t["ink"], size=10, family="Inter, sans-serif"),
         hovertext=texts, hoverinfo="text", customdata=list(H.nodes),
-        marker=dict(size=sizes, color=colors, opacity=opac,
+        marker=dict(size=sizes, color=colors, opacity=opac, symbol=symbols,
                     line=dict(color=lines, width=2.4)),
         showlegend=False, name="")
 
@@ -248,12 +251,20 @@ def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en") -> str:
                   shadow={"enabled": True, "color": col, "size": 22, "x": 0, "y": 0},
                   font={"color": t["ink"], "size": 15, "face": "Inter",
                         "strokeWidth": 3, "strokeColor": t["page"]})
+        # distinct shape per class: POI=star · Account=square · Company=dot ·
+        # Person=triangle · Unknown=diamond  (colour also differs by class)
         if n == POI:
             kw.update(shape="star", size=max(size, 34), color={"background": t["poi"],
                       "border": t["amber"], "highlight": {"background": t["poi"], "border": "#fff"}})
         elif ann.get("photo"):
             kw.update(shape="circularImage", image=ann["photo"], brokenImage="")
-        else:
+        elif nt == "Account":
+            kw.update(shape="square", size=max(size, 24))
+        elif nt == "Person":
+            kw.update(shape="triangle")
+        elif nt == "Unknown":
+            kw.update(shape="diamond")
+        else:  # Company
             kw.update(shape="dot")
         net.add_node(n, **kw)
 

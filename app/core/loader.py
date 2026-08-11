@@ -33,12 +33,27 @@ ALIASES = {
     "receiver": "beneficiary",
     "amount": "amount", "value": "amount", "amt": "amount",
     "transaction_method": "transaction_method", "method": "transaction_method",
-    "channel": "transaction_method", "type": "transaction_method",
+    "channel": "transaction_method",
     "transaction method": "transaction_method",
+    # explicit entity-type columns
+    "sender_type": "sender_type", "sender type": "sender_type",
+    "originator_type": "sender_type", "payer_type": "sender_type", "from_type": "sender_type",
+    "beneficiary_type": "beneficiary_type", "beneficiary type": "beneficiary_type",
+    "receiver_type": "beneficiary_type", "payee_type": "beneficiary_type", "to_type": "beneficiary_type",
 }
 
+# core columns that must be present; the two *_type columns are optional
 REQUIRED = ["date", "direction", "account_no", "sender", "beneficiary",
             "amount", "transaction_method"]
+TYPE_COLS = ["sender_type", "beneficiary_type"]
+# canonical full schema (for downloads / templates)
+SCHEMA = ["date", "direction", "account_no", "sender", "sender_type",
+          "beneficiary", "beneficiary_type", "amount", "transaction_method"]
+
+
+def export_columns(df: pd.DataFrame) -> list[str]:
+    """Schema columns that are present, for CSV export."""
+    return [c for c in SCHEMA if c in df.columns]
 
 
 def _norm_dir(v: str) -> str:
@@ -52,15 +67,46 @@ def _norm_dir(v: str) -> str:
     return v
 
 
-def _classify(name: str) -> tuple[str, str]:
-    """Return (display_name, type) for a sender/beneficiary token."""
+def _norm_type(v) -> str | None:
+    """Normalise an explicit type value to Person / Company / Unknown / POI."""
+    if v is None:
+        return None
+    t = str(v).strip().lower()
+    if t in ("", "nan", "none"):
+        return None
+    if t in SELF_TOKENS:
+        return "POI"
+    if t in ("person", "individual", "natural", "natural person", "people", "human", "ind"):
+        return "Person"
+    if t in ("company", "corporate", "corporation", "legal", "legal entity", "organisation",
+             "organization", "business", "entity", "firm", "co", "org"):
+        return "Company"
+    if t in UNKNOWN_TOKENS or t in ("unknown", "unknow", "unidentified"):
+        return "Unknown"
+    return "Company"
+
+
+def _entity(name, typ=None) -> tuple[str, str]:
+    """Return (display_name, type). Uses the explicit type column when given,
+    otherwise falls back to inference from the name token."""
     raw = str(name).strip()
     low = raw.lower()
     if low in SELF_TOKENS:
         return ("POI", "POI")
     if low in UNKNOWN_TOKENS:
         return ("Unknown", "Unknown")
-    return (raw, "Company")
+    nt = _norm_type(typ)
+    if nt in ("Person", "Company"):
+        return (raw, nt)
+    if nt == "Unknown":
+        return ("Unknown", "Unknown")
+    if nt == "POI":
+        return ("POI", "POI")
+    return (raw, "Company")  # fallback when no type column
+
+
+def _classify(name: str) -> tuple[str, str]:  # backward-compat
+    return _entity(name, None)
 
 
 def read_csv(file) -> pd.DataFrame:
@@ -81,7 +127,10 @@ def normalise(df: pd.DataFrame) -> pd.DataFrame:
             f"CSV is missing required column(s): {', '.join(missing)}.\n"
             f"Expected: {', '.join(REQUIRED)}")
 
-    df = df[REQUIRED].copy()
+    keep = REQUIRED + [c for c in TYPE_COLS if c in df.columns]
+    df = df[keep].copy()
+    has_stype = "sender_type" in df.columns
+    has_btype = "beneficiary_type" in df.columns
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"])
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0.0).abs()
@@ -98,10 +147,11 @@ def normalise(df: pd.DataFrame) -> pd.DataFrame:
 
     s_name, s_type, b_name, b_type = [], [], [], []
     for _, r in df.iterrows():
-        sn, stp = _classify(r["sender"])
-        bn, btp = _classify(r["beneficiary"])
+        sn, stp = _entity(r["sender"], r["sender_type"] if has_stype else None)
+        bn, btp = _entity(r["beneficiary"], r["beneficiary_type"] if has_btype else None)
         s_name.append(sn); s_type.append(stp)
         b_name.append(bn); b_type.append(btp)
+    # normalized (derived) types overwrite/create the *_type columns
     df["sender_name"], df["sender_type"] = s_name, s_type
     df["beneficiary_name"], df["beneficiary_type"] = b_name, b_type
 
@@ -137,9 +187,21 @@ def sample_dataframe(seed: int = 7) -> pd.DataFrame:
     A1, A2, A3 = "AC-4021-8837", "AC-4021-5590", "AC-7745-1120"
     rows = []
 
+    persons = {"Kareem Idris", "Bilal Shah", "Omar Haddad", "Layla Nasser",
+               "Yusuf Karim", "Amira Saleh", "Daniel Okoro", "Sara Mansour"}
+
+    def etype(name):
+        n = str(name).strip().lower()
+        if n == "poi":
+            return "person"          # the POI is a natural person
+        if n in ("unknown", "unknow", ""):
+            return "unknown"
+        return "person" if name in persons else "company"
+
     def add(d, direction, acct, sender, beneficiary, amount, method):
         rows.append(dict(date=d, direction=direction, account_no=acct,
-                         sender=sender, beneficiary=beneficiary,
+                         sender=sender, sender_type=etype(sender),
+                         beneficiary=beneficiary, beneficiary_type=etype(beneficiary),
                          amount=round(float(amount), 2), transaction_method=method))
 
     employer = "Meridian Logistics FZE"
@@ -148,6 +210,7 @@ def sample_dataframe(seed: int = 7) -> pd.DataFrame:
                  "Shell Station", "Noon Marketplace", "Spinneys"]
     clients = ["Nova Medical Center", "Falcon Auto Services", "Greenfield Property"]
     shells = ["Crescent Bay Holdings", "Blue Harbor Trading", "Sterling Consulting"]
+    people = ["Omar Haddad", "Layla Nasser", "Yusuf Karim", "Amira Saleh"]
     smurfs = ["unknown"] * 6 + ["Kareem Idris", "Bilal Shah"]
 
     months = pd.period_range("2025-06", "2026-05", freq="M")
@@ -217,12 +280,36 @@ def sample_dataframe(seed: int = 7) -> pd.DataFrame:
         add(date(2026, 2, 20) + timedelta(days=i), "out", A1, "poi", "poi",
             random.choice([3000, 3500, 4000]), "withdrawal")
 
+    # person-to-POI and POI-to-person flows (so individuals show up distinctly)
+    for i in range(4):
+        p = random.choice(months)
+        add(date(p.year, p.month, random.randint(1, 27)), "in", random.choice([A1, A2]),
+            random.choice(people), "poi", random.choice([1200, 2600, 3400, 900]), "transfer")
+    for i in range(5):
+        p = random.choice(months)
+        add(date(p.year, p.month, random.randint(1, 27)), "out", A1, "poi",
+            random.choice(people), random.choice([1500, 2200, 800, 3100]), "transfer")
+
     df = pd.DataFrame(rows)
     return normalise(df)
 
 
 def sample_csv_bytes(seed: int = 7) -> bytes:
+    """Emit the sample in the full CSV schema (incl. sender_type/beneficiary_type)."""
+    import random
+    from datetime import date  # noqa: F401
     df = sample_dataframe(seed)
-    out = df[REQUIRED].copy()
-    out["date"] = pd.to_datetime(out["date"]).dt.strftime("%Y-%m-%d")
+    vocab = {"POI": "person", "Person": "person", "Company": "company",
+             "Unknown": "unknown", "Internal": "unknown"}
+    out = pd.DataFrame({
+        "date": pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d"),
+        "direction": df["direction"].map({"in": "in", "out": "out", "own": "own_account"}),
+        "account_no": df["account_no"],
+        "sender": df["sender"],
+        "sender_type": df["sender_type"].map(vocab).fillna("company"),
+        "beneficiary": df["beneficiary"],
+        "beneficiary_type": df["beneficiary_type"].map(vocab).fillna("company"),
+        "amount": df["amount"],
+        "transaction_method": df["transaction_method"],
+    })
     return out.to_csv(index=False).encode()

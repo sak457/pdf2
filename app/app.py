@@ -158,6 +158,10 @@ with st.sidebar:
     asel = st.multiselect(L("account"), accts, default=accts)
     ctypes = sorted(df_all.counterparty_type.unique())
     csel = st.multiselect(L("cp_type"), ctypes, default=ctypes)
+    stypes = sorted(df_all.sender_type.unique())
+    ssel = st.multiselect(L("f_sender_type"), stypes, default=stypes)
+    btypes = sorted(df_all.beneficiary_type.unique())
+    bsel = st.multiselect(L("f_beneficiary_type"), btypes, default=btypes)
     amin, amax = float(df_all.amount.min()), float(df_all.amount.max())
     arange = st.slider(L("amount_range"), amin, amax, (amin, amax))
     ext_cps = sorted(df_all.loc[~df_all.counterparty_type.isin(["POI", "Internal"]),
@@ -169,7 +173,8 @@ d = df_all.copy()
 if isinstance(dr, tuple) and len(dr) == 2:
     d = d[(d.date.dt.date >= dr[0]) & (d.date.dt.date <= dr[1])]
 d = d[d.quarter.isin(qsel) & d.direction.isin(dirs) & d.transaction_method.isin(msel) &
-      d.counterparty_type.isin(csel) & (d.amount >= arange[0]) & (d.amount <= arange[1])]
+      d.counterparty_type.isin(csel) & d.sender_type.isin(ssel) & d.beneficiary_type.isin(bsel) &
+      (d.amount >= arange[0]) & (d.amount <= arange[1])]
 d = d[d.accounts.apply(lambda l: any(a in asel for a in l))]
 if focus_cp != L("focus_all"):
     d = d[d.counterparty == focus_cp]
@@ -302,8 +307,11 @@ STAT_EV = {
     "net": _pd.DataFrame([{"": L("kpi_in"), " ": analytics.money(k["total_in"])},
                           {"": L("kpi_out"), " ": analytics.money(k["total_out"])},
                           {"": L("kpi_net"), " ": analytics.money(k["net"])}]),
-    "accounts": _pd.DataFrame([{L("account"): a["account"], L("col_balance"): analytics.money(a["balance"])}
-                               for a in analytics.account_details(d)]),
+    "accounts": _pd.DataFrame([{
+        L("account"): a["account"], L("col_in_ext"): analytics.money(a["in_ext"]),
+        L("col_in_own"): analytics.money(a["in_own"]), L("col_out_ext"): analytics.money(a["out_ext"]),
+        L("col_out_own"): analytics.money(a["out_own"]), L("col_balance_eq"): analytics.money(a["balance"])}
+        for a in analytics.account_details(d)]),
     "senders": _pd.DataFrame([{L("col_cp"): r["name"], L("col_amount"): analytics.money(r["amount"]), "#": r["count"]}
                               for r in R["senders"][:10]]),
     "bens": _pd.DataFrame([{L("col_cp"): r["name"], L("col_amount"): analytics.money(r["amount"]), "#": r["count"]}
@@ -339,6 +347,8 @@ for i in range(0, len(visible), 5):
                         show["amount"] = show["amount"].map(lambda x: f"{x:,.0f}")
                     st.dataframe(show, use_container_width=True, hide_index=True,
                                  height=min(320, 44 + 28 * len(show)))
+                if sid == "accounts":
+                    st.caption("🧮 " + L("balance_formula"))
 
 st.write("")
 
@@ -384,6 +394,14 @@ elif sec == "accounts":
         L("col_outgoing"): analytics.money(a["outflow"]), L("col_balance"): analytics.money(a["balance"]),
         L("col_count"): a["count"], L("col_spike"): ("🔴 " + L("yes")) if a["spike"] else L("no")}
         for a in ad]), use_container_width=True, hide_index=True)
+
+    with st.expander(f"🧮 {L('balance_help')}"):
+        st.dataframe(pd.DataFrame([{
+            L("account"): a["account"], L("col_in_ext"): analytics.money(a["in_ext"]),
+            L("col_in_own"): analytics.money(a["in_own"]), L("col_out_ext"): analytics.money(a["out_ext"]),
+            L("col_out_own"): analytics.money(a["out_own"]), L("col_balance_eq"): analytics.money(a["balance"])}
+            for a in ad]), use_container_width=True, hide_index=True)
+        st.caption(L("balance_formula"))
 
     spiky = [a for a in ad if a["spike"]]
     if spiky:
@@ -476,16 +494,32 @@ elif sec == "cp":
 elif sec == "net":
     import streamlit.components.v1 as components
     chart_header(L("net_title"), "network")
-    # legend
-    lg = [(t["poi"], f"⭐ {L('lg_poi')}"), (t["account"], L("lg_account")),
-          (t["company"], L("lg_company")), (t["unknown"], L("lg_unknown")),
-          (t["green"], f"— {L('lg_in')}"), (t["red"], f"— {L('lg_out')}"),
-          (t["violet"], f"— {L('lg_own')}")]
+    # legend — node classes (distinct shapes) + edge directions
+    def swatch(shape, c):
+        base = f"display:inline-block;width:13px;height:13px;box-shadow:0 0 8px {c};"
+        if shape == "star":
+            return f"<span style='color:{c};text-shadow:0 0 8px {c};font-size:15px'>★</span>"
+        if shape == "square":
+            return f"<span style='{base}background:{c}'></span>"
+        if shape == "triangle":
+            return (f"<span style='display:inline-block;width:0;height:0;"
+                    f"border-left:7px solid transparent;border-right:7px solid transparent;"
+                    f"border-bottom:12px solid {c};filter:drop-shadow(0 0 5px {c})'></span>")
+        if shape == "diamond":
+            return f"<span style='{base}background:{c};transform:rotate(45deg)'></span>"
+        if shape == "line":
+            return f"<span style='display:inline-block;width:18px;height:3px;border-radius:2px;background:{c};box-shadow:0 0 6px {c}'></span>"
+        return f"<span style='{base}background:{c};border-radius:50%'></span>"  # dot
+
+    lg = [("star", t["poi"], L("lg_poi")), ("square", t["account"], L("lg_account")),
+          ("dot", t["company"], L("lg_company")), ("triangle", t["pink"], L("lg_person")),
+          ("diamond", t["unknown"], L("lg_unknown")),
+          ("line", t["green"], L("lg_in")), ("line", t["red"], L("lg_out")),
+          ("line", t["violet"], L("lg_own"))]
     chips = " ".join(
-        f"<span style='display:inline-flex;align-items:center;gap:6px;margin-inline-end:14px;"
+        f"<span style='display:inline-flex;align-items:center;gap:7px;margin-inline-end:16px;"
         f"font-family:var(--mono);font-size:12px;color:{t['mute']}'>"
-        f"<span style='width:12px;height:12px;border-radius:50%;background:{c};"
-        f"box-shadow:0 0 8px {c}'></span>{lab}</span>" for c, lab in lg)
+        f"{swatch(shape, c)}{lab}</span>" for shape, c, lab in lg)
     st.markdown(f"<div class='card' style='padding:10px 14px'>{chips}</div>", unsafe_allow_html=True)
     st.caption("🖱️ " + L("net_help"))
     html = network.pyvis_html(d, R["entity_risk"], ss.nodes, t, height=620, lang=lang)
@@ -588,7 +622,7 @@ elif sec == "txns":
     st.markdown(f"##### 🧾 {L('all_txns')}")
     full = d[analytics.EVID_COLS].copy(); full["date"] = full["date"].dt.strftime("%Y-%m-%d")
     st.dataframe(full, use_container_width=True, hide_index=True, height=420)
-    st.download_button(f"⬇ {L('download_csv')}", d[loader.REQUIRED].to_csv(index=False).encode(),
+    st.download_button(f"⬇ {L('download_csv')}", d[loader.export_columns(d)].to_csv(index=False).encode(),
                        "filtered_transactions.csv", "text/csv")
 
 # ---- Chat ----

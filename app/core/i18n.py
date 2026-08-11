@@ -46,6 +46,8 @@ STR = {
     "account": {"en": "Account", "ar": "الحساب"},
     "cp_type": {"en": "Counterparty type", "ar": "نوع الطرف المقابل"},
     "amount_range": {"en": "Amount range", "ar": "نطاق المبلغ"},
+    "f_sender_type": {"en": "Sender type", "ar": "نوع المرسل"},
+    "f_beneficiary_type": {"en": "Beneficiary type", "ar": "نوع المستفيد"},
     "focus_cp": {"en": "Focus counterparty (money in/out with POI)",
                  "ar": "التركيز على طرف مقابل (الوارد/الصادر مع الشخص)"},
     "focus_all": {"en": "— All counterparties —", "ar": "— كل الأطراف —"},
@@ -138,9 +140,27 @@ STR = {
     "lg_account": {"en": "Account", "ar": "حساب"},
     "lg_company": {"en": "Company", "ar": "شركة"},
     "lg_unknown": {"en": "Unknown", "ar": "غير معروف"},
+    "lg_person": {"en": "Person", "ar": "فرد"},
     "lg_in": {"en": "Incoming", "ar": "وارد"},
     "lg_out": {"en": "Outgoing", "ar": "صادر"},
     "lg_own": {"en": "Own-account", "ar": "بين الحسابات"},
+    # balance evidence
+    "balance_help": {"en": "How is the current balance calculated?",
+                     "ar": "كيف يُحتسب الرصيد الحالي؟"},
+    "balance_formula": {"en": "Current balance = external incoming + own-account received "
+                              "− external outgoing − own-account sent. Own-account transfers "
+                              "move money between the subject's accounts, so they are added to "
+                              "the receiving account and subtracted from the sending one. "
+                              "(Reflects the transactions currently in view, not a bank opening balance.)",
+                        "ar": "الرصيد الحالي = الوارد الخارجي + المستلَم بين الحسابات − الصادر "
+                              "الخارجي − المُرسَل بين الحسابات. التحويلات بين حسابات الشخص تُضاف "
+                              "للحساب المستلِم وتُخصم من الحساب المُرسِل. (يعكس المعاملات المعروضة "
+                              "حاليًا وليس رصيدًا افتتاحيًا من البنك.)"},
+    "col_in_ext": {"en": "+ Incoming (external)", "ar": "+ وارد خارجي"},
+    "col_in_own": {"en": "+ Own-in", "ar": "+ وارد داخلي"},
+    "col_out_ext": {"en": "− Outgoing (external)", "ar": "− صادر خارجي"},
+    "col_out_own": {"en": "− Own-out", "ar": "− صادر داخلي"},
+    "col_balance_eq": {"en": "= Balance", "ar": "= الرصيد"},
     # crime
     "crime_title": {"en": "Financial-crime typology detection", "ar": "كشف أنماط الجرائم المالية"},
     "crime_note": {"en": "decision-support only, not an allegation", "ar": "لدعم القرار فقط، وليست اتهامًا"},

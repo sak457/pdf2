@@ -88,8 +88,12 @@ def account_details(df: pd.DataFrame) -> list[dict]:
     out = []
     for acc in accts:
         in_m, out_m, own_in, own_out = _acc_masks(df, acc)
-        inflow = df[in_m].amount.sum() + df[own_in].amount.sum()
-        outflow = df[out_m].amount.sum() + df[own_out].amount.sum()
+        in_ext = df[in_m].amount.sum()
+        in_own = df[own_in].amount.sum()
+        out_ext = df[out_m].amount.sum()
+        out_own = df[own_out].amount.sum()
+        inflow = in_ext + in_own
+        outflow = out_ext + out_own
         g = df[in_m | out_m | own_in | own_out]
         months = sorted(g.month.unique())
         mi, mo = [], []
@@ -104,6 +108,7 @@ def account_details(df: pd.DataFrame) -> list[dict]:
                 if mi_a[i] > mi_a.mean() + 1.2 * mi_a.std() or mo_a[i] > mo_a.mean() + 1.2 * mo_a.std():
                     spike_months.append(mth)
         out.append(dict(account=acc, inflow=inflow, outflow=outflow,
+                        in_ext=in_ext, in_own=in_own, out_ext=out_ext, out_own=out_own,
                         balance=inflow - outflow, count=int((in_m | out_m | own_in | own_out).sum()),
                         spike=bool(spike_months), spike_months=spike_months))
     return out
