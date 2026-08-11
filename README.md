@@ -68,18 +68,28 @@ work session** that persists everything you do.
 Wording is deliberately non-accusatory — every flag is a *potential indicator
 requiring review*, not an allegation.
 
-### Accounts, sessions & persistence
+### Accounts, roles & persistence
 
 - **Login** — accounts live in a SQLite DB; passwords are PBKDF2-hashed. Admins
-  are designated by the `AML_ADMIN_USERS` env var (they see everyone's sessions
-  and can wipe all data); everyone else sees only their own work.
-- **Sessions** — every CSV upload or *Load sample* creates a **work session**
-  that stores the data plus a snapshot of everything you do (POI + photo,
-  counterparty-card edits/merges/OSINT, node annotations, removed findings,
-  hidden KPIs, BLUF, chat). Work **autosaves** continuously.
-- **Manage** — the sidebar lists your sessions to open/rename/delete; admins get
-  a user-management panel (add / reset password / delete) and a *wipe all
-  sessions & data* action gated by a typed `DELETE ALL` (user accounts are kept).
+  are designated by the `AML_ADMIN_USERS` env var. **Login persists** in a
+  browser cookie: refresh or reopen the tab and you stay signed in for 24 hours
+  (until you log out or it expires). The **session you have open is remembered**
+  across refreshes too, and only resets on a fresh typed-credentials login.
+- **Roles** — **admins do everything**: create sessions (upload / *Load sample*),
+  rename/delete/wipe them, and edit every analyst artefact (POI, BLUF,
+  counterparty cards, node annotations, findings, hidden KPIs, chat, export
+  template & commentary). **Normal users are read-only browsers** of the sessions
+  an admin created — they can filter/slice, switch theme/language, inspect all
+  evidence, and **download** the exported report, but cannot change or save
+  anything (nothing they touch is ever written back).
+- **Sessions** — every CSV upload or *Load sample* (admin) creates a **work
+  session** that stores the data plus a snapshot of everything done in it (POI +
+  photo, counterparty-card edits/merges/OSINT, node annotations, removed
+  findings, hidden KPIs, BLUF, chat). Admin work **autosaves** continuously.
+- **Manage** — admins get a session list (open/rename/delete), a user-management
+  panel (add / reset password / delete) and a *wipe all sessions & data* action
+  gated by a typed `DELETE ALL` (user accounts are kept). Users just get the
+  read-only session browser.
 
 ### Deployment & configuration
 

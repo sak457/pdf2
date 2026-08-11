@@ -9,15 +9,54 @@ account from ``AML_ADMIN_PASSWORD`` (default "admin", with a change-me warning).
 
 from __future__ import annotations
 
+import json
+
 import streamlit as st
+import streamlit.components.v1 as components
 
 from . import db, i18n
+
+COOKIE = "aml_auth"  # persistent-login cookie name
+
+
+def _cookie_token() -> str | None:
+    """Raw token from the browser cookie (server-side, read-only)."""
+    try:
+        return st.context.cookies.get(COOKIE)
+    except Exception:
+        return None
+
+
+def _sync_cookie(ss) -> None:
+    """Emit the one-shot cookie write/clear queued by login/logout. Runs on
+    every require_login call so it fires even when we stop() after logout."""
+    raw = ss.pop("_pending_cookie", None)
+    if raw:
+        maxage = db.TOKEN_TTL_HOURS * 3600
+        val = json.dumps(f"{COOKIE}={raw}; path=/; max-age={maxage}; SameSite=Lax")
+        components.html(f"<script>document.cookie={val};</script>", height=0)
+    if ss.pop("_clear_cookie", None):
+        val = json.dumps(f"{COOKIE}=; path=/; max-age=0; SameSite=Lax")
+        components.html(f"<script>document.cookie={val};</script>", height=0)
 
 
 def require_login(lang: str = "en", brand: str = "AML INTELLIGENCE TERMINAL") -> bool:
     ss = st.session_state
+    _sync_cookie(ss)
     if ss.get("authed"):
         return True
+
+    # Stay-logged-in: a valid cookie token auto-authenticates without the form.
+    raw = _cookie_token()
+    if raw:
+        user = db.verify_token(raw)
+        if user:
+            ss.authed = True
+            ss.user = user
+            ss.is_admin = db.is_admin(user)
+            ss.auth_token = raw
+            ss._restore_session = True   # reopen the remembered session
+            st.rerun()
 
     def T(k):
         return i18n.T(k, lang)
@@ -40,6 +79,10 @@ def require_login(lang: str = "en", brand: str = "AML INTELLIGENCE TERMINAL") ->
                 ss.authed = True
                 ss.user = u.strip()
                 ss.is_admin = db.is_admin(u.strip())
+                # Issue a fresh persistent-login token + set the cookie.
+                ss.auth_token = db.create_token(ss.user)
+                ss._pending_cookie = ss.auth_token
+                ss._fresh_login = True   # typed login clears any prior session/data
                 st.rerun()
             else:
                 st.error(T("login_bad"))
@@ -53,7 +96,9 @@ def logout_button(lang: str = "en"):
         tag = " · 👑" if ss.get("is_admin") else ""
         st.sidebar.caption(f"👤 {ss.get('user', '')}{tag}")
         if st.sidebar.button(f"🔓 {i18n.T('logout', lang)}", use_container_width=True):
-            for k in ("authed", "user", "is_admin"):
+            db.delete_token(ss.get("auth_token"))
+            ss._clear_cookie = True
+            for k in ("authed", "user", "is_admin", "auth_token", "db_session_id"):
                 ss.pop(k, None)
             st.rerun()
 

@@ -275,6 +275,8 @@ STR = {
     "new_session": {"en": "New session (upload / sample)", "ar": "جلسة جديدة (رفع / عيّنة)"},
     "no_sessions": {"en": "No saved sessions yet — upload a CSV or load the sample.",
                     "ar": "لا توجد جلسات محفوظة — ارفع ملف CSV أو حمّل العيّنة."},
+    "viewer_readonly": {"en": "Read-only — sessions are created by an admin.",
+                        "ar": "للعرض فقط — الجلسات يُنشئها المسؤول."},
     "session_active": {"en": "Active session", "ar": "الجلسة الحالية"},
     "session_rename": {"en": "Rename", "ar": "إعادة تسمية"},
     "session_delete": {"en": "Delete session (removes its data)", "ar": "حذف الجلسة (يمسح بياناتها)"},

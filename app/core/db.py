@@ -20,6 +20,7 @@ import hmac
 import io
 import json
 import os
+import secrets
 import sqlite3
 from contextlib import contextmanager
 
@@ -31,6 +32,7 @@ DB_PATH = os.environ.get(
 
 PBKDF2_ITERS = 200_000
 STATE_VERSION = 1
+TOKEN_TTL_HOURS = 24  # "stay logged in" cookie lifetime
 
 
 # --------------------------------------------------------------------------- #
@@ -80,6 +82,13 @@ CREATE TABLE IF NOT EXISTS session_state (
   state_hash TEXT NOT NULL,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  token           TEXT PRIMARY KEY,            -- sha256 of the raw cookie value
+  username        TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+  last_session_id INTEGER,
+  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at      TEXT NOT NULL
+);
 """
 
 
@@ -89,6 +98,7 @@ def init_db() -> bool:
     with _connect() as con:
         con.executescript(DDL)
         con.execute(f"PRAGMA user_version={STATE_VERSION}")
+    purge_expired_tokens()
     return bootstrap()
 
 
@@ -182,12 +192,25 @@ def bootstrap() -> bool:
 #  Work sessions
 # --------------------------------------------------------------------------- #
 def _can_access(con, sid: int, acting_user: str):
+    """Write access: only the owner or an admin. Used by rename/delete."""
     row = con.execute("SELECT * FROM sessions WHERE id=?", (sid,)).fetchone()
     if not row:
         raise LookupError("Session not found.")
     if row["username"] != acting_user and not is_admin(acting_user):
         raise PermissionError("Not authorised for this session.")
     return row
+
+
+def _can_read(con, sid: int, acting_user: str):
+    """Read access: the owner, an admin, or any user reading an admin-created
+    session (normal users are read-only browsers of the admin's sessions)."""
+    row = con.execute("SELECT * FROM sessions WHERE id=?", (sid,)).fetchone()
+    if not row:
+        raise LookupError("Session not found.")
+    if (row["username"] == acting_user or is_admin(acting_user)
+            or is_admin(row["username"])):
+        return row
+    raise PermissionError("Not authorised for this session.")
 
 
 def create_session(username: str, name: str, df) -> int:
@@ -208,16 +231,19 @@ def list_sessions(acting_user: str) -> list[dict]:
                 "SELECT id, username, name, created_at, updated_at, row_count "
                 "FROM sessions ORDER BY updated_at DESC").fetchall()
         else:
+            # Normal users browse sessions created by admins (read-only).
+            admins = sorted(admin_usernames())
+            ph = ",".join("?" * len(admins)) or "NULL"
             rows = con.execute(
                 "SELECT id, username, name, created_at, updated_at, row_count "
-                "FROM sessions WHERE username=? ORDER BY updated_at DESC",
-                (acting_user,)).fetchall()
+                f"FROM sessions WHERE username IN ({ph}) ORDER BY updated_at DESC",
+                admins).fetchall()
     return [dict(r) for r in rows]
 
 
 def load_session(sid: int, acting_user: str):
     with _connect() as con:
-        row = _can_access(con, sid, acting_user)
+        row = _can_read(con, sid, acting_user)
     csv = gzip.decompress(row["csv_gz"])
     df = loader.read_csv(io.BytesIO(csv))
     return dict(row), df
@@ -303,3 +329,63 @@ def load_state(sid: int) -> str | None:
         row = con.execute("SELECT state_json FROM session_state WHERE session_id=?",
                           (sid,)).fetchone()
     return row["state_json"] if row else None
+
+
+# --------------------------------------------------------------------------- #
+#  Persistent-login tokens ("stay logged in" cookie)
+# --------------------------------------------------------------------------- #
+def _token_hash(raw: str) -> str:
+    return hashlib.sha256(str(raw).encode("utf-8")).hexdigest()
+
+
+def create_token(username: str) -> str:
+    """Issue a persistent-login token for a user; returns the RAW value to put
+    in the cookie (only its sha256 is stored)."""
+    raw = secrets.token_urlsafe(32)
+    with _connect() as con:
+        con.execute(
+            "INSERT INTO auth_tokens(token, username, expires_at) "
+            "VALUES (?,?,datetime('now', ?))",
+            (_token_hash(raw), str(username), f"+{TOKEN_TTL_HOURS} hours"))
+    return raw
+
+
+def verify_token(raw: str) -> str | None:
+    """Return the username for a valid, unexpired token, else None."""
+    if not raw:
+        return None
+    with _connect() as con:
+        row = con.execute(
+            "SELECT username FROM auth_tokens "
+            "WHERE token=? AND expires_at > datetime('now')",
+            (_token_hash(raw),)).fetchone()
+    return row["username"] if row else None
+
+
+def token_last_session(raw: str) -> int | None:
+    if not raw:
+        return None
+    with _connect() as con:
+        row = con.execute("SELECT last_session_id FROM auth_tokens WHERE token=?",
+                          (_token_hash(raw),)).fetchone()
+    return row["last_session_id"] if row and row["last_session_id"] is not None else None
+
+
+def set_token_session(raw: str, sid: int | None) -> None:
+    if not raw:
+        return
+    with _connect() as con:
+        con.execute("UPDATE auth_tokens SET last_session_id=? WHERE token=?",
+                    (sid, _token_hash(raw)))
+
+
+def delete_token(raw: str) -> None:
+    if not raw:
+        return
+    with _connect() as con:
+        con.execute("DELETE FROM auth_tokens WHERE token=?", (_token_hash(raw),))
+
+
+def purge_expired_tokens() -> None:
+    with _connect() as con:
+        con.execute("DELETE FROM auth_tokens WHERE expires_at <= datetime('now')")

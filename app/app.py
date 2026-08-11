@@ -80,6 +80,9 @@ def L(key):
 if not auth.require_login(lang, _T("brand", lang)):
     st.stop()
 
+# Role: admins can create/edit everything; normal users are read-only viewers.
+EDIT = bool(ss.get("is_admin"))
+
 
 def data_uri(raw, mime="image/png"):
     return f"data:{mime};base64," + base64.b64encode(raw).decode()
@@ -155,9 +158,10 @@ WIDGET_KEYS = {"bluf_ta", "cp_merge_sel", "node_pick", "na", "nb", "np", "navseg
 
 def autosave():
     """Persist the current work state to the active DB session, but only when it
-    actually changed (hash-gated → zero writes on idle reruns)."""
+    actually changed (hash-gated → zero writes on idle reruns). Only admins can
+    write — normal users are read-only browsers of admin sessions."""
     sid = ss.get("db_session_id")
-    if not sid:
+    if not sid or not ss.get("is_admin"):
         return
     try:
         js, h = db.serialize_state(ss)
@@ -190,6 +194,8 @@ def open_db_session(sid):
         db.restore_state(ss, js)
     ss.db_session_id = sid
     ss.last_saved_hash = db.serialize_state(ss)[1]
+    if ss.get("auth_token"):
+        db.set_token_session(ss.auth_token, sid)   # remember across refresh
     st.rerun()
 
 
@@ -199,7 +205,24 @@ def start_new_session(ndf, name):
     ss.df, ss.data_name = ndf, name
     ss.db_session_id = db.create_session(ss.user, name, ndf)
     ss.last_saved_hash = None
+    if ss.get("auth_token"):
+        db.set_token_session(ss.auth_token, ss.db_session_id)   # remember across refresh
     st.rerun()
+
+
+# A fresh typed-credentials login starts from a clean slate (clears any session
+# or data left in memory from a previous user), so selection resets.
+if ss.pop("_fresh_login", False):
+    reset_work_state()
+    ss.db_session_id = None
+# A cookie auto-login instead restores the session the user last had open.
+elif ss.pop("_restore_session", False) and ss.get("auth_token"):
+    _last = db.token_last_session(ss.auth_token)
+    if _last:
+        try:
+            open_db_session(_last)   # reruns
+        except Exception:
+            pass
 
 
 def cp_lookup_panel(key):
@@ -234,7 +257,7 @@ with st.sidebar:
 
     st.divider()
     # ---- saved work sessions ----
-    st.markdown(f"**💾 {L('my_sessions') if not ss.get('is_admin') else L('all_sessions')}**")
+    st.markdown(f"**💾 {L('all_sessions')}**")
     _sessions = db.list_sessions(ss.user)
     if _sessions:
         _labels = {}
@@ -249,8 +272,8 @@ with st.sidebar:
                             placeholder="—", label_visibility="collapsed", key="sess_pick")
         if pick and _labels[pick] != ss.get("db_session_id"):
             open_db_session(_labels[pick])
-        # active-session controls
-        if ss.get("db_session_id"):
+        # active-session controls (admins only — users are read-only)
+        if ss.get("db_session_id") and ss.get("is_admin"):
             oc1, oc2 = st.columns(2)
             with oc1.popover(f"✏️ {L('session_rename')}", use_container_width=True):
                 nn = st.text_input(L("session_rename"), value=ss.get("data_name", ""), key="sess_rename")
@@ -263,21 +286,25 @@ with st.sidebar:
                     db.delete_session(ss.db_session_id, ss.user)
                     reset_work_state(); ss.db_session_id = None; st.rerun()
     else:
-        st.caption(L("no_sessions"))
+        st.caption(L("no_sessions") if ss.get("is_admin") else L("viewer_readonly"))
 
-    st.markdown(f"**{IC['upload']} {L('new_session')}**")
-    up = st.file_uploader(L("upload_csv"), type=["csv"], key="uploader")
-    c1, c2 = st.columns(2)
-    if c1.button(L("load_sample"), use_container_width=True):
-        start_new_session(loader.sample_dataframe(), f"sample · {datetime.now():%Y-%m-%d %H:%M}")
-    c2.download_button(L("sample_csv"), loader.sample_csv_bytes(),
-                       "sample_transactions.csv", "text/csv", use_container_width=True)
-    if up is not None and getattr(up, "file_id", up.name) != ss.get("last_upload_id"):
-        ss.last_upload_id = getattr(up, "file_id", up.name)
-        try:
-            start_new_session(loader.read_csv(up), f"{up.name} · {datetime.now():%Y-%m-%d %H:%M}")
-        except Exception as e:
-            st.error(str(e))
+    # New sessions (upload / sample) are admin-only; users only browse.
+    if ss.get("is_admin"):
+        st.markdown(f"**{IC['upload']} {L('new_session')}**")
+        up = st.file_uploader(L("upload_csv"), type=["csv"], key="uploader")
+        c1, c2 = st.columns(2)
+        if c1.button(L("load_sample"), use_container_width=True):
+            start_new_session(loader.sample_dataframe(), f"sample · {datetime.now():%Y-%m-%d %H:%M}")
+        c2.download_button(L("sample_csv"), loader.sample_csv_bytes(),
+                           "sample_transactions.csv", "text/csv", use_container_width=True)
+        if up is not None and getattr(up, "file_id", up.name) != ss.get("last_upload_id"):
+            ss.last_upload_id = getattr(up, "file_id", up.name)
+            try:
+                start_new_session(loader.read_csv(up), f"{up.name} · {datetime.now():%Y-%m-%d %H:%M}")
+            except Exception as e:
+                st.error(str(e))
+    else:
+        st.caption(f"🔒 {L('viewer_readonly')}")
 
     # ---- admin panel ----
     if ss.get("is_admin"):
@@ -385,12 +412,12 @@ if focus_cp != L("focus_all"):
 # --------------------------------------------------------------------------- #
 pc1, pc2 = st.columns([0.85, 0.15])
 with pc2:
-    if not ss.poi_edit and st.button(f"✏️ {L('edit')}", use_container_width=True):
+    if EDIT and not ss.poi_edit and st.button(f"✏️ {L('edit')}", use_container_width=True):
         ss.poi_edit = True; st.rerun()
 with pc1:
     st.markdown(f"###### {IC['poi']} {L('poi_profile')}")
 
-if ss.poi_edit:
+if EDIT and ss.poi_edit:
     with st.form("poi_form"):
         f1, f2, f3 = st.columns(3)
         ss.poi["name"] = f1.text_input(L("full_name"), ss.poi["name"])
@@ -433,9 +460,9 @@ with hc1:
     bluf_text = ss.bluf_override or R["bluf"]
     tc1, tc2 = st.columns([0.8, 0.2])
     with tc2:
-        if st.button(f"✏️ {L('edit_bluf')}", use_container_width=True):
+        if EDIT and st.button(f"✏️ {L('edit_bluf')}", use_container_width=True):
             ss.bluf_edit = not ss.bluf_edit
-    if ss.bluf_edit:
+    if EDIT and ss.bluf_edit:
         new = st.text_area(L("edit_bluf"), value=bluf_text, height=140, key="bluf_ta")
         bc1, bc2 = st.columns(2)
         if bc1.button(f"💾 {L('save')}", use_container_width=True, type="primary"):
@@ -488,14 +515,15 @@ STAT_EV = {
                              "": f["level"]} for f in active]),
 }
 
-with st.popover(f"⚙️ {L('customize_stats')}"):
-    st.caption(L("stat_show"))
-    for sid, icon, label, *_ in STATS:
-        shown = st.checkbox(f"{icon} {label}", value=sid not in ss.kpi_hidden, key=f"kp_{sid}")
-        if shown:
-            ss.kpi_hidden.discard(sid)
-        else:
-            ss.kpi_hidden.add(sid)
+if EDIT:
+    with st.popover(f"⚙️ {L('customize_stats')}"):
+        st.caption(L("stat_show"))
+        for sid, icon, label, *_ in STATS:
+            shown = st.checkbox(f"{icon} {label}", value=sid not in ss.kpi_hidden, key=f"kp_{sid}")
+            if shown:
+                ss.kpi_hidden.discard(sid)
+            else:
+                ss.kpi_hidden.add(sid)
 
 visible = [s for s in STATS if s[0] not in ss.kpi_hidden]
 for i in range(0, len(visible), 5):
@@ -678,22 +706,23 @@ elif sec == "cp":
         default=L("cp_osint_all"), key="cp_osint_sel")
     desc = fcol[3].toggle(L("cp_desc"), value=True, key="cp_desc_sel")
 
-    # merge control
-    label_of = {f"{c['name']} · {c['account'] or '—'}  [#{c['id']}]": c["id"] for c in CP_CARDS}
-    msel = st.multiselect(L("cp_merge_label"), list(label_of), key="cp_merge_sel")
-    if st.button(f"🔗 {L('cp_merge_btn')}", disabled=len(msel) < 2):
-        ids = {label_of[l] for l in msel}
-        groups = [g for g in ss.cp_groups if g["id"] in ids]
-        members = [m for g in groups for m in g["members"]]
-        accts = " | ".join(sorted({a for g in groups for a in (g["account"].split(" | ") if g["account"] else []) if a}))
-        first = groups[0]
-        newg = dict(id=ss.cp_next_id, members=members, name=first["name"], account=accts,
-                    type=first["type"] or next((g["type"] for g in groups if g["type"]), ""),
-                    functions=first["functions"] or next((g["functions"] for g in groups if g["functions"]), ""),
-                    osint=any(g.get("osint") for g in groups))
-        ss.cp_next_id += 1
-        ss.cp_groups = [g for g in ss.cp_groups if g["id"] not in ids] + [newg]
-        st.rerun()
+    # merge control (admins only)
+    if EDIT:
+        label_of = {f"{c['name']} · {c['account'] or '—'}  [#{c['id']}]": c["id"] for c in CP_CARDS}
+        msel = st.multiselect(L("cp_merge_label"), list(label_of), key="cp_merge_sel")
+        if st.button(f"🔗 {L('cp_merge_btn')}", disabled=len(msel) < 2):
+            ids = {label_of[l] for l in msel}
+            groups = [g for g in ss.cp_groups if g["id"] in ids]
+            members = [m for g in groups for m in g["members"]]
+            accts = " | ".join(sorted({a for g in groups for a in (g["account"].split(" | ") if g["account"] else []) if a}))
+            first = groups[0]
+            newg = dict(id=ss.cp_next_id, members=members, name=first["name"], account=accts,
+                        type=first["type"] or next((g["type"] for g in groups if g["type"]), ""),
+                        functions=first["functions"] or next((g["functions"] for g in groups if g["functions"]), ""),
+                        osint=any(g.get("osint") for g in groups))
+            ss.cp_next_id += 1
+            ss.cp_groups = [g for g in ss.cp_groups if g["id"] not in ids] + [newg]
+            st.rerun()
 
     # filter + sort
     cards = CP_CARDS
@@ -722,14 +751,23 @@ elif sec == "cp":
                 hc = st.columns([0.16, 0.84])
                 hc[0].markdown(f"<div style='font-size:30px'>{icon_of.get(c['tclass'],'❓')}</div>",
                                unsafe_allow_html=True)
-                g["name"] = hc[1].text_input(L("col_cp"), value=g["name"], key=f"cpn_{c['id']}",
-                                             label_visibility="collapsed")
-                g["account"] = st.text_input(L("cp_account"), value=g["account"], key=f"cpa_{c['id']}")
-                g["type"] = st.text_input(L("cp_type_field"), value=g["type"], key=f"cpt_{c['id']}",
-                                          placeholder=L("cp_fill"))
-                g["osint"] = st.toggle(f"🔎 {L('cp_osint')}", value=g.get("osint", False), key=f"cpo_{c['id']}")
-                g["functions"] = st.text_area(L("cp_functions"), value=g["functions"], key=f"cpf_{c['id']}",
-                                              placeholder=L("cp_fill"), height=80)
+                if EDIT:
+                    g["name"] = hc[1].text_input(L("col_cp"), value=g["name"], key=f"cpn_{c['id']}",
+                                                 label_visibility="collapsed")
+                    g["account"] = st.text_input(L("cp_account"), value=g["account"], key=f"cpa_{c['id']}")
+                    g["type"] = st.text_input(L("cp_type_field"), value=g["type"], key=f"cpt_{c['id']}",
+                                              placeholder=L("cp_fill"))
+                    g["osint"] = st.toggle(f"🔎 {L('cp_osint')}", value=g.get("osint", False), key=f"cpo_{c['id']}")
+                    g["functions"] = st.text_area(L("cp_functions"), value=g["functions"], key=f"cpf_{c['id']}",
+                                                  placeholder=L("cp_fill"), height=80)
+                else:
+                    hc[1].markdown(f"**{g['name'] or '—'}**")
+                    st.markdown(
+                        f"**{L('cp_account')}:** {g['account'] or '—'}  \n"
+                        f"**{L('cp_type_field')}:** {g['type'] or '—'}  \n"
+                        f"🔎 {L('cp_osint')}: {'✓' if g.get('osint') else '—'}")
+                    if g["functions"]:
+                        st.caption(f"{L('cp_functions')}: {g['functions']}")
                 st.markdown(
                     f"<div style='display:flex;gap:8px;margin-top:4px'>"
                     f"<div style='flex:1;background:{t['green']}1e;border:1px solid {t['green']}66;border-radius:8px;padding:6px 9px'>"
@@ -741,7 +779,7 @@ elif sec == "cp":
                     unsafe_allow_html=True)
                 if len(c["members"]) > 1:
                     st.caption(f"🔗 {L('cp_merged_of')}: " + ", ".join(c["members"]))
-                    if st.button(f"✂️ {L('cp_split')}", key=f"cps_{c['id']}", use_container_width=True):
+                    if EDIT and st.button(f"✂️ {L('cp_split')}", key=f"cps_{c['id']}", use_container_width=True):
                         ss.cp_groups = [x for x in ss.cp_groups if x["id"] != c["id"]]
                         st.rerun()
 
@@ -784,19 +822,23 @@ elif sec == "net":
     u = network.node_universe(d)
     lc1, lc2 = st.columns(2)
     with lc1:
-        st.markdown(f"**✏️ {L('annotate_node')}**")
-        pick = st.selectbox(L("node"), u, key="node_pick")
-        ann = ss.nodes.get(pick, {})
-        with st.form("nodeform"):
-            dn = st.text_input(L("display_name"), ann.get("display_name", ""))
-            did = st.text_input(L("doc_id"), ann.get("doc_id", ""))
-            note = st.text_area(L("notes"), ann.get("notes", ""), height=68)
-            nph = st.file_uploader(L("photo"), type=["png", "jpg", "jpeg"], key="np")
-            if st.form_submit_button(f"💾 {L('save_node')}", use_container_width=True, type="primary"):
-                na = dict(display_name=dn, doc_id=did, notes=note, photo=ann.get("photo"))
-                if nph is not None:
-                    na["photo"] = data_uri(nph.read(), "image/jpeg" if nph.name.lower().endswith(("jpg", "jpeg")) else "image/png")
-                ss.nodes[pick] = na; st.success("✓"); st.rerun()
+        if EDIT:
+            st.markdown(f"**✏️ {L('annotate_node')}**")
+            pick = st.selectbox(L("node"), u, key="node_pick")
+            ann = ss.nodes.get(pick, {})
+            with st.form("nodeform"):
+                dn = st.text_input(L("display_name"), ann.get("display_name", ""))
+                did = st.text_input(L("doc_id"), ann.get("doc_id", ""))
+                note = st.text_area(L("notes"), ann.get("notes", ""), height=68)
+                nph = st.file_uploader(L("photo"), type=["png", "jpg", "jpeg"], key="np")
+                if st.form_submit_button(f"💾 {L('save_node')}", use_container_width=True, type="primary"):
+                    na = dict(display_name=dn, doc_id=did, notes=note, photo=ann.get("photo"))
+                    if nph is not None:
+                        na["photo"] = data_uri(nph.read(), "image/jpeg" if nph.name.lower().endswith(("jpg", "jpeg")) else "image/png")
+                    ss.nodes[pick] = na; st.success("✓"); st.rerun()
+        else:
+            st.markdown(f"**✏️ {L('annotate_node')}**")
+            st.caption(f"🔒 {L('viewer_readonly')}")
     with lc2:
         st.markdown(f"**🔎 {L('txn_between')}**")
         na = st.selectbox(L("node_a"), u, index=0, key="na")
@@ -827,14 +869,14 @@ elif sec == "crime":
         with cc[1]:
             evidence(L("info"), typ_plain(f["key"], lang), f["evidence"], f["basis"], key=f"ev_{f['key']}")
         with cc[2]:
-            if st.button(f"❌ {L('remove')}", key=f"rm_{f['key']}", use_container_width=True):
+            if EDIT and st.button(f"❌ {L('remove')}", key=f"rm_{f['key']}", use_container_width=True):
                 ss.disabled.add(f["key"]); st.rerun()
     if removed:
         with st.expander(f"🗑️ {L('removed_title')}  ({len(removed)})"):
             for f in removed:
                 rc = st.columns([0.8, 0.2])
                 rc[0].markdown(f"{f['icon']} {typ_title(f['key'], lang, f['title'])}")
-                if rc[1].button(f"↩️ {L('restore')}", key=f"rs_{f['key']}", use_container_width=True):
+                if EDIT and rc[1].button(f"↩️ {L('restore')}", key=f"rs_{f['key']}", use_container_width=True):
                     ss.disabled.discard(f["key"]); st.rerun()
 
 # ---- Risk ----
@@ -892,11 +934,14 @@ elif sec == "chat":
     if not ss.chat:
         with st.chat_message("assistant", avatar="🛰️"):
             st.markdown(L("chat_intro"))
-    prompt = st.chat_input(L("chat_placeholder"))
-    if prompt:
-        ss.chat.append({"role": "user", "content": prompt})
-        ss.chat.append({"role": "assistant", "content": chat.answer(prompt, R, d, lang)})
-        st.rerun()
+    if EDIT:
+        prompt = st.chat_input(L("chat_placeholder"))
+        if prompt:
+            ss.chat.append({"role": "user", "content": prompt})
+            ss.chat.append({"role": "assistant", "content": chat.answer(prompt, R, d, lang)})
+            st.rerun()
+    else:
+        st.caption(f"🔒 {L('viewer_readonly')}")
 
 # ---- Export ----
 elif sec == "export":
@@ -931,11 +976,13 @@ elif sec == "export":
     with ec2:
         rep_title = st.text_input(L("report_title"), "Financial Intelligence Report")
         prepared = st.text_input(L("prepared_for"), "Senior Management")
-        tmpl = st.file_uploader(L("tmpl_upload"), type=["pptx", "potx"])
-        if tmpl is not None:
-            ss.tmpl = tmpl.read(); st.success(L("tmpl_used"))
-    ss.bluf_override = st.text_area("BLUF", ss.bluf_override or R["bluf"], height=100)
-    ss.analyst_note = st.text_area(L("commentary"), ss.analyst_note, height=80)
+        if EDIT:
+            tmpl = st.file_uploader(L("tmpl_upload"), type=["pptx", "potx"])
+            if tmpl is not None:
+                ss.tmpl = tmpl.read(); st.success(L("tmpl_used"))
+    if EDIT:
+        ss.bluf_override = st.text_area("BLUF", ss.bluf_override or R["bluf"], height=100)
+        ss.analyst_note = st.text_area(L("commentary"), ss.analyst_note, height=80)
     if st.button(f"🖨️ {L('gen_pptx')}", type="primary"):
         with st.spinner(L("rendering")):
             meta = dict(title=rep_title, subtitle=f"Prepared for {prepared}",
