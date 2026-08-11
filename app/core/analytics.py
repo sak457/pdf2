@@ -144,6 +144,24 @@ def account_top(df: pd.DataFrame, acc: str, direction: str, n: int = 5) -> list[
                  count=int(x.count)) for x in r.itertuples()]
 
 
+def counterparty_aggregates(df: pd.DataFrame) -> dict:
+    """Per external counterparty: type, own account number(s), POI accounts used,
+    total inbound and total outbound (POI-relative), and count. Keyed by name."""
+    ext = df[~df.counterparty_type.isin(["POI", "Internal"])]
+    agg = {}
+    has_acc = "counterparty_account" in ext.columns
+    for name, g in ext.groupby("counterparty"):
+        accts = sorted(set(str(a) for a in g["counterparty_account"].unique()
+                           if str(a).strip())) if has_acc else []
+        agg[name] = dict(
+            name=name, type=g.counterparty_type.iat[0], accounts=accts,
+            poi_accounts=sorted(set(a for row in g.accounts for a in row)),
+            total_in=g[g.direction == "in"].amount.sum(),
+            total_out=g[g.direction == "out"].amount.sum(),
+            count=len(g))
+    return agg
+
+
 def multi_account_counterparties(df: pd.DataFrame, min_accounts: int = 2) -> list[dict]:
     """Counterparties that moved money with the POI across several of the POI's
     accounts (a spreading pattern). Returns one row per counterparty with the

@@ -50,6 +50,8 @@ def _init():
     s.setdefault("nav", None)
     s.setdefault("kpi_hidden", set())
     s.setdefault("bluf_edit", False)
+    s.setdefault("cp_groups", [])
+    s.setdefault("cp_next_id", 1)
 
 
 _init()
@@ -101,6 +103,33 @@ def evidence(label, explanation, df=None, basis=None, key=None):
                 show["amount"] = show["amount"].map(lambda x: f"{x:,.0f}")
             st.dataframe(show, use_container_width=True, hide_index=True,
                          height=min(340, 40 + 28 * len(show)))
+
+
+def reconcile_cp(agg):
+    """Ensure every counterparty belongs to exactly one (mergeable) card group."""
+    existing = {m for g in ss.cp_groups for m in g["members"]}
+    for nm in agg:
+        if nm not in existing:
+            ss.cp_groups.append(dict(id=ss.cp_next_id, members=[nm], name=nm,
+                                     account=" | ".join(agg[nm]["accounts"]),
+                                     type="", functions=""))
+            ss.cp_next_id += 1
+    for g in ss.cp_groups:
+        g["members"] = [m for m in g["members"] if m in agg]
+    ss.cp_groups = [g for g in ss.cp_groups if g["members"]]
+
+
+def cp_card(g, agg):
+    members = [m for m in g["members"] if m in agg]
+    ti = sum(agg[m]["total_in"] for m in members)
+    to = sum(agg[m]["total_out"] for m in members)
+    types = {agg[m]["type"] for m in members}
+    tclass = "Company" if "Company" in types else ("Person" if "Person" in types else "Unknown")
+    accts = sorted({a for m in members for a in agg[m]["accounts"]})
+    return dict(id=g["id"], members=members, name=g["name"],
+                account=g["account"] or " | ".join(accts), type=g["type"],
+                functions=g["functions"], tclass=tclass, total_in=ti, total_out=to,
+                total=ti + to)
 
 
 # --------------------------------------------------------------------------- #
@@ -195,6 +224,11 @@ removed = [f for f in R["findings"] if f["key"] in ss.disabled]
 score = analytics.score_from(active)
 band = analytics.risk_band(score)
 band_c = {"High": t["red"], "Medium": t["amber"], "Low": t["green"]}[band]
+
+# counterparty card registry (editable + mergeable; persists in session)
+CP_AGG = analytics.counterparty_aggregates(d)
+reconcile_cp(CP_AGG)
+CP_CARDS = [cp_card(g, CP_AGG) for g in ss.cp_groups if any(m in CP_AGG for m in g["members"])]
 
 # --------------------------------------------------------------------------- #
 #  Brand rail
@@ -490,6 +524,78 @@ elif sec == "cp":
     mc1.plotly_chart(charts.method_donut(R["methods"], t), use_container_width=True, config=PLOTLY_CFG, key="md")
     mc2.plotly_chart(charts.method_bar(R["methods"], t), use_container_width=True, config=PLOTLY_CFG, key="mbar")
 
+    # ---- editable, mergeable counterparty cards ----
+    st.divider()
+    st.markdown(f"##### 🪪 {L('cp_cards_title')} "
+                f"<span class='muted'>· {len(CP_CARDS)} {L('cp_count')}</span>", unsafe_allow_html=True)
+    fcol = st.columns([0.34, 0.3, 0.18, 0.18])
+    flow = fcol[0].segmented_control(
+        L("cp_flow"), [L("cp_flow_all"), L("cp_flow_in"), L("cp_flow_out"), L("cp_flow_both")],
+        default=L("cp_flow_all"), key="cp_flow_sel")
+    sort_by = fcol[1].selectbox(L("cp_sort"), [L("cp_sort_in"), L("cp_sort_out"), L("cp_sort_name")], key="cp_sort_sel")
+    desc = fcol[2].toggle(L("cp_desc"), value=True, key="cp_desc_sel")
+
+    # merge control
+    label_of = {f"{c['name']} · {c['account'] or '—'}  [#{c['id']}]": c["id"] for c in CP_CARDS}
+    msel = st.multiselect(L("cp_merge_label"), list(label_of), key="cp_merge_sel")
+    if st.button(f"🔗 {L('cp_merge_btn')}", disabled=len(msel) < 2):
+        ids = {label_of[l] for l in msel}
+        groups = [g for g in ss.cp_groups if g["id"] in ids]
+        members = [m for g in groups for m in g["members"]]
+        accts = " | ".join(sorted({a for g in groups for a in (g["account"].split(" | ") if g["account"] else []) if a}))
+        first = groups[0]
+        newg = dict(id=ss.cp_next_id, members=members, name=first["name"], account=accts,
+                    type=first["type"] or next((g["type"] for g in groups if g["type"]), ""),
+                    functions=first["functions"] or next((g["functions"] for g in groups if g["functions"]), ""))
+        ss.cp_next_id += 1
+        ss.cp_groups = [g for g in ss.cp_groups if g["id"] not in ids] + [newg]
+        st.rerun()
+
+    # filter + sort
+    cards = CP_CARDS
+    if flow == L("cp_flow_in"):
+        cards = [c for c in cards if c["total_in"] > 0]
+    elif flow == L("cp_flow_out"):
+        cards = [c for c in cards if c["total_out"] > 0]
+    elif flow == L("cp_flow_both"):
+        cards = [c for c in cards if c["total_in"] > 0 and c["total_out"] > 0]
+    keyf = {L("cp_sort_in"): lambda c: c["total_in"], L("cp_sort_out"): lambda c: c["total_out"],
+            L("cp_sort_name"): lambda c: c["name"].lower()}[sort_by]
+    cards = sorted(cards, key=keyf, reverse=desc if sort_by != L("cp_sort_name") else not desc)
+
+    icon_of = {"Company": "🏢", "Person": "👤", "Unknown": "❓"}
+    grp_by_id = {g["id"]: g for g in ss.cp_groups}
+    per_row = 3
+    for i in range(0, len(cards), per_row):
+        cols = st.columns(per_row)
+        for j, c in enumerate(cards[i:i + per_row]):
+            g = grp_by_id[c["id"]]
+            with cols[j].container(border=True):
+                hc = st.columns([0.16, 0.84])
+                hc[0].markdown(f"<div style='font-size:30px'>{icon_of.get(c['tclass'],'❓')}</div>",
+                               unsafe_allow_html=True)
+                g["name"] = hc[1].text_input(L("col_cp"), value=g["name"], key=f"cpn_{c['id']}",
+                                             label_visibility="collapsed")
+                g["account"] = st.text_input(L("cp_account"), value=g["account"], key=f"cpa_{c['id']}")
+                g["type"] = st.text_input(L("cp_type_field"), value=g["type"], key=f"cpt_{c['id']}",
+                                          placeholder=L("cp_fill"))
+                g["functions"] = st.text_input(L("cp_functions"), value=g["functions"], key=f"cpf_{c['id']}",
+                                               placeholder=L("cp_fill"))
+                st.markdown(
+                    f"<div style='display:flex;gap:8px;margin-top:4px'>"
+                    f"<div style='flex:1;background:{t['green']}1e;border:1px solid {t['green']}66;border-radius:8px;padding:6px 9px'>"
+                    f"<div style='font-size:10px;color:{t['mute']};font-family:var(--mono)'>⬇ {L('cp_in')}</div>"
+                    f"<div style='font-family:var(--mono);font-weight:700;color:{t['green']}'>{analytics.money(c['total_in'])}</div></div>"
+                    f"<div style='flex:1;background:{t['red']}1e;border:1px solid {t['red']}66;border-radius:8px;padding:6px 9px'>"
+                    f"<div style='font-size:10px;color:{t['mute']};font-family:var(--mono)'>⬆ {L('cp_out')}</div>"
+                    f"<div style='font-family:var(--mono);font-weight:700;color:{t['red']}'>{analytics.money(c['total_out'])}</div></div></div>",
+                    unsafe_allow_html=True)
+                if len(c["members"]) > 1:
+                    st.caption(f"🔗 {L('cp_merged_of')}: " + ", ".join(c["members"]))
+                    if st.button(f"✂️ {L('cp_split')}", key=f"cps_{c['id']}", use_container_width=True):
+                        ss.cp_groups = [x for x in ss.cp_groups if x["id"] != c["id"]]
+                        st.rerun()
+
 # ---- Link Analysis ----
 elif sec == "net":
     import streamlit.components.v1 as components
@@ -663,6 +769,14 @@ elif sec == "export":
                                 default=[L("sankey_title"), L("tl_title"), L("net_title"), L("risk_contrib")])
         inc_find = st.checkbox(L("inc_findings"), True)
         inc_acc = st.checkbox(L("inc_accounts"), True)
+        inc_cp = st.checkbox(L("cp_export_inc"), False)
+        cp_mode, cp_pick = None, []
+        if inc_cp:
+            cp_mode = st.radio(L("cp_export_mode"),
+                               [L("cp_top5"), L("cp_top10"), L("cp_custom")], horizontal=True)
+            if cp_mode == L("cp_custom"):
+                cp_lbl = {f"{c['name']} · {c['account'] or '—'}": c["id"] for c in CP_CARDS}
+                cp_pick = [cp_lbl[x] for x in st.multiselect(L("cp_pick"), list(cp_lbl))]
     with ec2:
         rep_title = st.text_input(L("report_title"), "Financial Intelligence Report")
         prepared = st.text_input(L("prepared_for"), "Senior Management")
@@ -693,6 +807,21 @@ elif sec == "export":
                 tables = [{"title": L("acc_table_title"), "df": acc_tbl}]
                 if len(multi_tbl):
                     tables.append({"title": L("multi_title"), "df": multi_tbl})
+            if inc_cp:
+                ordered = sorted(CP_CARDS, key=lambda c: c["total"], reverse=True)
+                if cp_mode == L("cp_top5"):
+                    picks = ordered[:5]
+                elif cp_mode == L("cp_top10"):
+                    picks = ordered[:10]
+                else:
+                    picks = [c for c in ordered if c["id"] in cp_pick]
+                if picks:
+                    cp_tbl = pd.DataFrame([{
+                        L("col_cp"): c["name"], L("cp_account"): c["account"] or "—",
+                        L("cp_type_field"): c["type"] or "—", L("cp_functions"): c["functions"] or "—",
+                        L("cp_in"): analytics.money(c["total_in"]),
+                        L("cp_out"): analytics.money(c["total_out"])} for c in picks])
+                    tables = (tables or []) + [{"title": L("cp_export_title"), "df": cp_tbl}]
             pptx = pptx_export.build_pptx(t=t, meta=meta, bluf=ss.bluf_override or R["bluf"], poi=poi,
                                           kpis=k, overall_risk=score, overall_band=band, charts=sel,
                                           findings=active if inc_find else None,
