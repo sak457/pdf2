@@ -534,6 +534,12 @@ choice = st.segmented_control("nav", labels, default=labels[0],
                               label_visibility="collapsed", key="navseg") or labels[0]
 sec = SECTIONS[labels.index(choice)][0]
 
+# ---- Floating counterparty-lookup FAB (visible on every tab) ----
+with st.container(key="cp_fab"):
+    with st.popover("🪪", use_container_width=False):
+        st.markdown("<div class='cp-fab-mark'></div>", unsafe_allow_html=True)
+        cp_lookup_panel("cp_lookup_fab")
+
 # ---- Money Flow ----
 if sec == "flow":
     c1, c2 = st.columns([0.62, 0.38])
@@ -574,20 +580,16 @@ elif sec == "accounts":
     spiky = [a for a in ad if a["spike"]]
     if spiky:
         st.markdown(f"##### ⚡ {L('spike_txns_title')}")
-        scol1, scol2 = st.columns([0.72, 0.28])
-        with scol1:
-            for a in spiky:
-                stx = analytics.account_spike_txns(d, a["account"], a["spike_months"])
-                with st.expander(L("spike_view").format(acc=a["account"], n=len(stx))):
-                    sh = stx.copy()
-                    sh["date"] = pd.to_datetime(sh["date"]).dt.strftime("%Y-%m-%d")
-                    sh["flow"] = sh["flow"].map(lambda x: ("🟢 " + L("flow_in")) if x == "IN" else ("🔴 " + L("flow_out")))
-                    if "amount" in sh:
-                        sh["amount"] = sh["amount"].map(lambda x: f"{x:,.0f}")
-                    sh = sh.rename(columns={"flow": L("col_flow")})  # all dataset columns kept
-                    st.dataframe(sh, use_container_width=True, hide_index=True, height=min(340, 44 + 28 * len(sh)))
-        with scol2:
-            cp_lookup_panel("cp_lookup_acc")
+        for a in spiky:
+            stx = analytics.account_spike_txns(d, a["account"], a["spike_months"])
+            with st.expander(L("spike_view").format(acc=a["account"], n=len(stx))):
+                sh = stx.copy()
+                sh["date"] = pd.to_datetime(sh["date"]).dt.strftime("%Y-%m-%d")
+                sh["flow"] = sh["flow"].map(lambda x: ("🟢 " + L("flow_in")) if x == "IN" else ("🔴 " + L("flow_out")))
+                if "amount" in sh:
+                    sh["amount"] = sh["amount"].map(lambda x: f"{x:,.0f}")
+                sh = sh.rename(columns={"flow": L("col_flow")})  # all dataset columns kept
+                st.dataframe(sh, use_container_width=True, hide_index=True, height=min(340, 44 + 28 * len(sh)))
 
     st.markdown(f"##### 👥 {L('acc_top_title')}")
     for a in ad:
@@ -875,14 +877,10 @@ elif sec == "txns":
                                     L("col_method"): x["method"].title(), L("col_amount"): analytics.money_full(x["amount"])}
                                    for x in R["top_out"]]), use_container_width=True, hide_index=True)
     st.markdown(f"##### 🧾 {L('all_txns')}")
-    tcol1, tcol2 = st.columns([0.72, 0.28])
-    with tcol1:
-        full = d[analytics.EVID_COLS].copy(); full["date"] = full["date"].dt.strftime("%Y-%m-%d")
-        st.dataframe(full, use_container_width=True, hide_index=True, height=420)
-        st.download_button(f"⬇ {L('download_csv')}", d[loader.export_columns(d)].to_csv(index=False).encode(),
-                           "filtered_transactions.csv", "text/csv")
-    with tcol2:
-        cp_lookup_panel("cp_lookup_txn")
+    full = d[analytics.EVID_COLS].copy(); full["date"] = full["date"].dt.strftime("%Y-%m-%d")
+    st.dataframe(full, use_container_width=True, hide_index=True, height=420)
+    st.download_button(f"⬇ {L('download_csv')}", d[loader.export_columns(d)].to_csv(index=False).encode(),
+                       "filtered_transactions.csv", "text/csv")
 
 # ---- Chat ----
 elif sec == "chat":

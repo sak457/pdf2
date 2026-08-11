@@ -498,5 +498,6 @@ def rtl_css(lang: str) -> str:
       .bluf { border-left:none; border-right:5px solid var(--amber); }
       section[data-testid="stSidebar"] { direction: rtl; }
       .stTabs [data-baseweb="tab-list"] { flex-direction: row-reverse; }
+      .st-key-cp_fab { right:auto; left:22px; }
     </style>
     """

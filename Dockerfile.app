@@ -21,6 +21,8 @@
 #   AML_ADMIN_PASSWORD  password for the bootstrapped admin(s)  (default: admin —
 #                       the app shows a "change me" warning until you set this)
 #   AML_DB_PATH         SQLite file path; keep it on a volume   (default below)
+#   AML_OFFLINE         skip the web-font CDN so the UI + link-analysis graph
+#                       load instantly airgapped        (default: 1 in this image)
 
 FROM --platform=linux/amd64 python:3.11-slim-bookworm
 
@@ -30,7 +32,8 @@ ENV PYTHONUNBUFFERED=1 \
     STREAMLIT_SERVER_HEADLESS=true \
     STREAMLIT_BROWSER_GATHERUSAGESTATS=false \
     AML_DB_PATH=/data/aml.db \
-    AML_ADMIN_USERS=admin
+    AML_ADMIN_USERS=admin \
+    AML_OFFLINE=1
     # AML_ADMIN_PASSWORD is intentionally NOT baked in — supply it at `docker run`
     # so the default-password warning clears and a real credential is used.
 

@@ -13,6 +13,8 @@ Extras : per-node annotations (display name, doc id, photo, notes) supplied
 
 from __future__ import annotations
 
+import re
+
 import networkx as nx
 import pandas as pd
 
@@ -320,6 +322,13 @@ def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en", cp_info=N
     }))
 
     html = net.generate_html()
+
+    # Airgapped-friendly: pyvis inlines vis-network, but its template still pulls
+    # Bootstrap CSS + JS from a CDN. In an offline network those requests hang and
+    # the render-blocking <link> stalls the graph. Strip any external stylesheet /
+    # script tag (vis-network stays inlined, so the graph is unaffected).
+    html = re.sub(r'<link\b[^>]*href="https?://[^"]*"[^>]*/?>', '', html, flags=re.I | re.S)
+    html = re.sub(r'<script\b[^>]*src="https?://[^"]*"[^>]*>\s*</script>', '', html, flags=re.I | re.S)
 
     # inject click-to-focus (dim non-neighbours) + fit-on-stabilized
     focus_js = """

@@ -16,6 +16,8 @@ and the Plotly figures (apply_theme) so one toggle restyles everything.
 
 from __future__ import annotations
 
+import os
+
 # --------------------------------------------------------------------------- #
 #  Icons
 # --------------------------------------------------------------------------- #
@@ -147,9 +149,14 @@ def apply_theme(fig, t: dict, *, height=None, legend=True, title=None):
 # --------------------------------------------------------------------------- #
 def app_css(t: dict) -> str:
     scan = "rgba(255,255,255,0.015)" if t["name"] == "night" else "rgba(15,23,42,0.02)"
+    # In airgapped deployments the Google-Fonts CDN is unreachable; skip the
+    # render-blocking @import so the app loads instantly (fallback stacks apply).
+    fonts = "" if os.environ.get("AML_OFFLINE") else (
+        "@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700"
+        "&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');")
     return f"""
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+      {fonts}
 
       :root {{
         --ink:{t['ink']}; --mute:{t['mute']}; --dim:{t['dim']};
@@ -317,5 +324,17 @@ def app_css(t: dict) -> str:
       ::-webkit-scrollbar {{ width:10px; height:10px; }}
       ::-webkit-scrollbar-thumb {{ background:{t['border']}; border-radius:8px; }}
       ::-webkit-scrollbar-track {{ background:transparent; }}
+
+      /* floating counterparty-lookup FAB — pinned, visible on every tab */
+      .st-key-cp_fab {{ position:fixed; right:22px; bottom:22px; z-index:100000;
+        width:auto; margin:0; }}
+      .st-key-cp_fab [data-testid="stPopover"] {{ width:auto; }}
+      .st-key-cp_fab button {{ border-radius:50%; width:54px; height:54px;
+        min-height:54px; padding:0; font-size:22px; background:var(--amber);
+        color:#0a0f1c; border:none; box-shadow:0 6px 18px rgba(0,0,0,.4);
+        transition:transform .15s ease, box-shadow .15s ease; }}
+      .st-key-cp_fab button:hover {{ transform:translateY(-2px) scale(1.05);
+        box-shadow:0 10px 24px rgba(0,0,0,.5); }}
+      [data-testid="stPopoverBody"]:has(.cp-fab-mark) {{ min-width:380px; }}
     </style>
     """

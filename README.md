@@ -51,8 +51,11 @@ work session** that persists everything you do.
   transactions* behind it.
 - **POI profile** editor (name, nationality, doc/customer id, photo, notes).
 - **Link analysis**: interactive relationship graph (node size = volume, edge
-  colour = direction). Annotate any node with a name / doc id / photo / notes,
-  and inspect **the transactions between any two nodes**.
+  colour = direction) — fully self-contained (the graph library is inlined, no
+  CDN), so it renders instantly even airgapped. Annotate any node with a name /
+  doc id / photo / notes, and inspect **the transactions between any two nodes**.
+- **Counterparty lookup**: a floating 🪪 button (bottom-right, on every tab) —
+  click it and search any account # or name to pull up that counterparty's card.
 - **Financial-crime typologies**: 14 detectors (structuring, smurfing, funnel/
   layering, pass-through, round-tripping, round-dollar, own-account churn,
   fan-out, dormant-reactivation, repeated transfers, frequent withdrawals,
@@ -88,6 +91,7 @@ defaults, but **set a real admin password in production**):
 | `AML_ADMIN_USERS` | comma-separated admin usernames | `admin` |
 | `AML_ADMIN_PASSWORD` | password for the bootstrapped admin(s) on first run | `admin` (a "change me" warning shows until set) |
 | `AML_DB_PATH` | SQLite database file path — put it on a persistent volume | `app/data/aml.db` (`/data/aml.db` in Docker) |
+| `AML_OFFLINE` | skip the Google-Fonts web-font CDN so the UI loads instantly in airgapped networks (built-in fallback fonts apply) | unset (on = `1` in the Docker image) |
 
 **Run in Docker** (slim — no system Chromium needed; DB on a named volume so it
 survives restarts):
