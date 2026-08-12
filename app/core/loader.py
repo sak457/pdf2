@@ -255,6 +255,21 @@ def normalise(df: pd.DataFrame) -> pd.DataFrame:
     df["counterparty_osint"] = [
         (_norm_yesno(raw_os[i]) if raw_os is not None else False) and dirs[i] != "own"
         for i in range(len(df))]
+
+    # Chart/table identity: group counterparties by their ACCOUNT (falling back
+    # to the name when there is no account, e.g. Unknown / cash), and label each
+    # as "account · name". Aliased names sharing one account thus combine.
+    _acct = df["counterparty_account"].astype(str).str.strip()
+    _cname = df["counterparty"].astype(str)
+    df["cp_key"] = [a if (a and a.lower() not in ("nan", "none", "")) else n
+                    for a, n in zip(_acct, _cname)]
+    _rep = (df.groupby("cp_key")["counterparty"]
+            .agg(lambda s: s.mode().iat[0] if not s.mode().empty else s.iat[0]).to_dict())
+
+    def _cp_label(k):
+        nm = _rep.get(k, k)
+        return f"{k} · {nm}" if nm and str(nm) != str(k) else str(nm or k)
+    df["cp_label"] = df["cp_key"].map(_cp_label)
     df.drop(columns=["_s_acct", "_b_acct"], inplace=True, errors="ignore")
 
     # period helpers

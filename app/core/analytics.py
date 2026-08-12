@@ -16,6 +16,15 @@ CURRENCY = "AED "
 EVID_COLS = ["date", "direction", "account_no", "counterparty",
              "counterparty_type", "amount", "transaction_method"]
 
+
+def evid(df: pd.DataFrame) -> pd.DataFrame:
+    """Evidence-table view of transactions: the counterparty column shows the
+    'account · name' label instead of the bare name."""
+    out = df[EVID_COLS].copy()
+    if "cp_label" in df.columns:
+        out["counterparty"] = df["cp_label"].values
+    return out
+
 THRESHOLDS = dict(
     reporting_threshold=10_000, structuring_band=0.90, structuring_min=3,
     high_value_pct=0.97, rapid_days=3, rapid_tol=0.15, smurf_min=4,
@@ -62,15 +71,15 @@ def spike_breakdown(df: pd.DataFrame, month: str) -> dict:
         ext = frame[~frame.counterparty_type.isin(["POI", "Internal"])]
         if ext.empty:
             return []
-        r = (ext.groupby("counterparty")
+        r = (ext.groupby("cp_label")
              .agg(amount=("amount", "sum"), count=("amount", "size")).reset_index()
              .sort_values("amount", ascending=False).head(6))
-        return [dict(name=x.counterparty, amount=x.amount, count=int(x.count),
+        return [dict(name=x.cp_label, amount=x.amount, count=int(x.count),
                      pct=100 * x.amount / denom if denom else 0) for x in r.itertuples()]
     return dict(month=month, inflow=gi.amount.sum(), outflow=go.amount.sum(),
                 in_count=len(gi), out_count=len(go),
                 senders=rank(gi, gi.amount.sum()), beneficiaries=rank(go, go.amount.sum()),
-                evidence=gm[EVID_COLS].sort_values("amount", ascending=False))
+                evidence=evid(gm).sort_values("amount", ascending=False))
 
 
 def _acc_masks(df, acc):
@@ -141,10 +150,10 @@ def account_top(df: pd.DataFrame, acc: str, direction: str, n: int = 5) -> list[
            (~df.counterparty_type.isin(["POI", "Internal"]))]
     if g.empty:
         return []
-    r = (g.groupby(["counterparty", "counterparty_type"])
+    r = (g.groupby(["cp_label", "counterparty_type"])
          .agg(amount=("amount", "sum"), count=("amount", "size")).reset_index()
          .sort_values("amount", ascending=False).head(n))
-    return [dict(name=x.counterparty, type=x.counterparty_type, amount=x.amount,
+    return [dict(name=x.cp_label, type=x.counterparty_type, amount=x.amount,
                  count=int(x.count)) for x in r.itertuples()]
 
 
@@ -179,7 +188,7 @@ def multi_account_counterparties(df: pd.DataFrame, min_accounts: int = 2) -> lis
     set of POI accounts touched, type, direction and totals."""
     ext = df[(~df.counterparty_type.isin(["POI", "Internal"])) & (df.counterparty != "Unknown")]
     rows = []
-    for cp, g in ext.groupby("counterparty"):
+    for cp, g in ext.groupby("cp_label"):
         accts = sorted(set(g.account_from) | set(g.account_to))
         accts = [a for a in accts if a]
         if len(accts) < min_accounts:
@@ -197,7 +206,7 @@ def multi_account_counterparties(df: pd.DataFrame, min_accounts: int = 2) -> lis
 def _f(key, title, icon, level, conf, weight, why, basis, evidence, metric=None):
     return dict(key=key, title=title, icon=icon, level=level, confidence=conf,
                 weight=weight, why=why, basis=basis,
-                evidence=evidence[EVID_COLS].copy() if evidence is not None
+                evidence=evid(evidence) if evidence is not None
                 else pd.DataFrame(columns=EVID_COLS),
                 metric=metric or {})
 
@@ -230,8 +239,8 @@ def analyze(df: pd.DataFrame) -> dict:
         total_txns=len(df), total_in=total_in, total_out=total_out,
         net=total_in - total_out, own_total=own.amount.sum(),
         n_accounts=len(set(a for row in df.accounts for a in row)),
-        n_senders=ext_in.counterparty.nunique(),
-        n_beneficiaries=ext_out.counterparty.nunique(),
+        n_senders=ext_in.cp_key.nunique(),
+        n_beneficiaries=ext_out.cp_key.nunique(),
         avg=df.amount.mean(), largest=df.amount.max(), risk=overall,
         n_high=sum(f["level"] == "High" for f in findings),
         n_med=sum(f["level"] == "Medium" for f in findings),
@@ -253,7 +262,7 @@ def analyze(df: pd.DataFrame) -> dict:
         top_cp = "—"
         ext = g[~g.counterparty_type.isin(["POI", "Internal"])]
         if len(ext):
-            top_cp = ext.counterparty.mode().iat[0]
+            top_cp = ext.cp_label.mode().iat[0]
         accts.append(dict(
             account=acc, inflow=gi.amount.sum(), outflow=go.amount.sum(),
             count=int(mask_any.sum()), largest=g.amount.max() if len(g) else 0,
@@ -301,8 +310,8 @@ def _rank(frame, denom):
     if frame.empty:
         return []
     rows = []
-    for name, g in frame.groupby("counterparty"):
-        rows.append(dict(name=name, type=g.counterparty_type.iat[0],
+    for label, g in frame.groupby("cp_label"):
+        rows.append(dict(name=label, type=g.counterparty_type.iat[0],
                          amount=g.amount.sum(), count=len(g),
                          pct=100 * g.amount.sum() / denom if denom else 0))
     rows.sort(key=lambda x: x["amount"], reverse=True)
@@ -311,7 +320,8 @@ def _rank(frame, denom):
 
 def _top(frame, n):
     t = frame.sort_values("amount", ascending=False).head(n)
-    return [dict(date=r["date"], amount=r["amount"], counterparty=r["counterparty"],
+    return [dict(date=r["date"], amount=r["amount"],
+                 counterparty=r.get("cp_label", r["counterparty"]),
                  direction=r["direction"], method=r["transaction_method"],
                  account=r["account_no"]) for _, r in t.iterrows()]
 

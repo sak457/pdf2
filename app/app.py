@@ -508,15 +508,15 @@ with hc2:
 inc_ext = R["inc"][~R["inc"].counterparty_type.isin(["POI", "Internal"])]
 out_ext = R["out"][~R["out"].counterparty_type.isin(["POI", "Internal"])]
 STATS = [
-    ("txns", IC["txns"], L("kpi_txns"), f"{k['total_txns']:,}", "", t["blue"], "stat_txns", d[analytics.EVID_COLS]),
-    ("in", IC["in"], L("kpi_in"), analytics.money(k["total_in"]), f"{R['flow']['in_count']} {L('credits')}", t["green"], "stat_in", R["inc"][analytics.EVID_COLS]),
-    ("out", IC["out"], L("kpi_out"), analytics.money(k["total_out"]), f"{R['flow']['out_count']} {L('debits')}", t["red"], "stat_out", R["out"][analytics.EVID_COLS]),
+    ("txns", IC["txns"], L("kpi_txns"), f"{k['total_txns']:,}", "", t["blue"], "stat_txns", analytics.evid(d)),
+    ("in", IC["in"], L("kpi_in"), analytics.money(k["total_in"]), f"{R['flow']['in_count']} {L('credits')}", t["green"], "stat_in", analytics.evid(R["inc"])),
+    ("out", IC["out"], L("kpi_out"), analytics.money(k["total_out"]), f"{R['flow']['out_count']} {L('debits')}", t["red"], "stat_out", analytics.evid(R["out"])),
     ("net", IC["net"], L("kpi_net"), analytics.money(k["net"]), L("surplus") if k["net"] >= 0 else L("deficit"), t["green"] if k["net"] >= 0 else t["red"], "stat_net", None),
-    ("own", IC["own"], L("kpi_own"), analytics.money(k["own_total"]), f"{R['flow']['own_count']} {L('internal')}", t["violet"], "stat_own", R["own"][analytics.EVID_COLS]),
+    ("own", IC["own"], L("kpi_own"), analytics.money(k["own_total"]), f"{R['flow']['own_count']} {L('internal')}", t["violet"], "stat_own", analytics.evid(R["own"])),
     ("accounts", IC["accounts"], L("kpi_accounts"), f"{k['n_accounts']}", L("monitored"), t["blue"], "stat_accounts", None),
     ("senders", IC["senders"], L("kpi_senders"), f"{k['n_senders']}", "", t["teal"], "stat_senders", None),
     ("bens", IC["beneficiaries"], L("kpi_bens"), f"{k['n_beneficiaries']}", "", t["teal"], "stat_bens", None),
-    ("largest", IC["largest"], L("kpi_largest"), analytics.money(k["largest"]), "", t["amber"], "stat_largest", d.sort_values("amount", ascending=False).head(5)[analytics.EVID_COLS]),
+    ("largest", IC["largest"], L("kpi_largest"), analytics.money(k["largest"]), "", t["amber"], "stat_largest", analytics.evid(d.sort_values("amount", ascending=False).head(5))),
     ("flags", IC["risk"], L("kpi_flags"), f"{len(active)}", L("high_med").format(
         h=sum(f['level'] == 'High' for f in active), m=sum(f['level'] == 'Medium' for f in active)), band_c, "stat_flags", None),
 ]
@@ -856,9 +856,9 @@ elif sec == "cp":
                     _sub = d[d.counterparty.isin(c["members"])]
                     ev1, ev2 = st.columns(2)
                     with ev1.popover(f"⬇ {L('cp_ev_in')}", use_container_width=True):
-                        _cp_ev(_sub[_sub.direction == "in"][analytics.EVID_COLS])
+                        _cp_ev(analytics.evid(_sub[_sub.direction == "in"]))
                     with ev2.popover(f"⬆ {L('cp_ev_out')}", use_container_width=True):
-                        _cp_ev(_sub[_sub.direction == "out"][analytics.EVID_COLS])
+                        _cp_ev(analytics.evid(_sub[_sub.direction == "out"]))
                     if len(c["members"]) > 1:
                         st.caption(f"🔗 {L('cp_merged_of')}: " + ", ".join(c["members"]))
                         if EDIT and st.button(f"✂️ {L('cp_split')}", key=f"cps_{c['id']}", use_container_width=True):
@@ -969,8 +969,9 @@ elif sec == "risk":
                 st.write(typ_plain(f["key"], lang))
                 st.caption(f["basis"])
     if panel("acct_cp_risk", f"🏦 {L('acct_cp_risk')}"):
+        _n2l = dict(zip(d.counterparty, d.cp_label))
         ar = pd.DataFrame([{L("account"): a["account"], "Type": "Account", "Score": a["risk"], "Band": a["band"]} for a in R["accounts"]] +
-                          [{L("account"): n, "Type": v["role"], "Score": v["score"], "Band": v["band"]}
+                          [{L("account"): _n2l.get(n, n), "Type": v["role"], "Score": v["score"], "Band": v["band"]}
                            for n, v in sorted(R["entity_risk"].items(), key=lambda x: -x[1]["score"])[:8]])
         st.dataframe(ar, use_container_width=True, hide_index=True,
                      column_config={"Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%d")})
@@ -989,7 +990,7 @@ elif sec == "txns":
                                         L("col_method"): x["method"].title(), L("col_amount"): analytics.money_full(x["amount"])}
                                        for x in R["top_out"]]), use_container_width=True, hide_index=True)
     if panel("all_txns", f"🧾 {L('all_txns')}"):
-        full = d[analytics.EVID_COLS].copy(); full["date"] = full["date"].dt.strftime("%Y-%m-%d")
+        full = analytics.evid(d); full["date"] = full["date"].dt.strftime("%Y-%m-%d")
         st.dataframe(full, use_container_width=True, hide_index=True, height=420)
         st.download_button(f"⬇ {L('download_csv')}", d[loader.export_columns(d)].to_csv(index=False).encode(),
                            "filtered_transactions.csv", "text/csv")

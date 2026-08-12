@@ -106,7 +106,7 @@ def sankey(R, t, lang="en"):
 
     def groups(frame, col, other, n=5):
         s = frame[~frame.counterparty_type.isin(["POI", "Internal"])]\
-            .groupby("counterparty").amount.sum().sort_values(ascending=False)
+            .groupby("cp_label").amount.sum().sort_values(ascending=False)
         top = list(s.head(n).items())
         if s.iloc[n:].sum() > 0:
             top.append((other, s.iloc[n:].sum()))
