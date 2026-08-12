@@ -31,7 +31,7 @@ def node_universe(df: pd.DataFrame) -> list[str]:
     return [POI] + accts + cps
 
 
-def _build(df, entity_risk, annotations, max_nodes=30):
+def _build(df, entity_risk, annotations, max_nodes=None):
     accts = set(a for row in df.accounts for a in row)
     G = nx.DiGraph()
     vol = {}
@@ -58,14 +58,18 @@ def _build(df, entity_risk, annotations, max_nodes=30):
         _edge(G, a, POI, 0, "own_link")
         bump(POI, vol.get(a, 0))
 
-    # prune to top nodes (keep POI, accounts, annotated)
-    keep = {POI} | accts | set(annotations.keys())
-    ranked = sorted(vol.items(), key=lambda kv: kv[1], reverse=True)
-    for n, _ in ranked:
-        if len(keep) >= max_nodes:
-            break
-        keep.add(n)
-    H = G.subgraph([n for n in G.nodes if n in keep]).copy()
+    # Show ALL nodes by default (every counterparty/account). max_nodes only
+    # prunes (to the top-volume nodes) when a caller explicitly asks for a cap.
+    if max_nodes is not None:
+        keep = {POI} | accts | set(annotations.keys())
+        ranked = sorted(vol.items(), key=lambda kv: kv[1], reverse=True)
+        for n, _ in ranked:
+            if len(keep) >= max_nodes:
+                break
+            keep.add(n)
+        H = G.subgraph([n for n in G.nodes if n in keep]).copy()
+    else:
+        H = G.copy()
 
     node_type = {}
     for n in H.nodes:
@@ -379,24 +383,31 @@ def pyvis_html(df, entity_risk, annotations, t, height=640, lang="en", cp_info=N
     return html.replace("</body>", tooltip_css + focus_js + "</body>")
 
 
+def _edge_mask(df: pd.DataFrame, a: str, b: str):
+    """Boolean mask of the transactions connecting two nodes."""
+    accts = set(x for row in df.accounts for x in row)
+    is_acc = lambda x: x in accts
+    if is_acc(a) and is_acc(b):
+        return df.direction.eq("own") & df.accounts.apply(lambda l: {a, b} <= set(l))
+    if POI in (a, b) and (is_acc(a) or is_acc(b)):
+        acc = a if is_acc(a) else b
+        return df.accounts.apply(lambda l: acc in l)
+    if POI in (a, b):  # POI <-> counterparty
+        cp = a if a != POI else b
+        return df.counterparty.eq(cp)
+    # account <-> counterparty
+    acc = a if is_acc(a) else b
+    cp = b if is_acc(a) else a
+    return df.accounts.apply(lambda l: acc in l) & df.counterparty.eq(cp)
+
+
+def edge_subset(df: pd.DataFrame, a: str, b: str) -> pd.DataFrame:
+    """Full-row transactions connecting two nodes (for re-graphing the pair)."""
+    return df[_edge_mask(df, a, b)].sort_values("date")
+
+
 def edge_transactions(df: pd.DataFrame, a: str, b: str) -> pd.DataFrame:
     """Transactions connecting two selected nodes (accounts / POI / counterparty)."""
-    accts = set(x for row in df.accounts for x in row)
     cols = ["date", "direction", "account_no", "counterparty", "counterparty_type",
             "amount", "transaction_method"]
-    A, B = {a, b}, None
-    is_acc = lambda x: x in accts
-
-    if is_acc(a) and is_acc(b):
-        m = df.direction.eq("own") & df.accounts.apply(lambda l: {a, b} <= set(l))
-    elif POI in (a, b) and (is_acc(a) or is_acc(b)):
-        acc = a if is_acc(a) else b
-        m = df.accounts.apply(lambda l: acc in l)
-    elif POI in (a, b):  # POI <-> counterparty
-        cp = a if a != POI else b
-        m = df.counterparty.eq(cp)
-    else:  # account <-> counterparty
-        acc = a if is_acc(a) else b
-        cp = b if is_acc(a) else a
-        m = df.accounts.apply(lambda l: acc in l) & df.counterparty.eq(cp)
-    return df[m][cols].sort_values("date")
+    return df[_edge_mask(df, a, b)][cols].sort_values("date")

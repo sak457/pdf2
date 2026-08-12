@@ -154,15 +154,22 @@ def counterparty_aggregates(df: pd.DataFrame) -> dict:
     ext = df[~df.counterparty_type.isin(["POI", "Internal"])]
     agg = {}
     has_acc = "counterparty_account" in ext.columns
+    has_det = "counterparty_details" in ext.columns
+    has_os = "counterparty_osint" in ext.columns
     for name, g in ext.groupby("counterparty"):
         accts = sorted(set(str(a) for a in g["counterparty_account"].unique()
                            if str(a).strip())) if has_acc else []
+        details = ""
+        if has_det:
+            nz = [str(x).strip() for x in g["counterparty_details"] if str(x).strip()]
+            details = nz[0] if nz else ""
+        osint = bool(g["counterparty_osint"].any()) if has_os else False
         agg[name] = dict(
             name=name, type=g.counterparty_type.iat[0], accounts=accts,
             poi_accounts=sorted(set(a for row in g.accounts for a in row)),
             total_in=g[g.direction == "in"].amount.sum(),
             total_out=g[g.direction == "out"].amount.sum(),
-            count=len(g))
+            count=len(g), details=details, osint=osint)
     return agg
 
 

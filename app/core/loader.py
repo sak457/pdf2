@@ -50,18 +50,38 @@ ALIASES = {
     "beneficiary_account": "beneficiary_account", "beneficiary account": "beneficiary_account",
     "receiver_account": "beneficiary_account", "to_account": "beneficiary_account",
     "counterparty_account": "counterparty_account",
+    # explicit counterparty CARD columns (new schema): name / type / OSINT notes /
+    # whether OSINT data was found. These pre-fill the counterparty card directly.
+    "counterparty_name": "cp_name", "counterparty name": "cp_name", "counterparty": "cp_name",
+    "cp_name": "cp_name",
+    "counterparty_type": "cp_type_raw", "counterparty type": "cp_type_raw",
+    "coutnerparty_type": "cp_type_raw", "cp_type_raw": "cp_type_raw",
+    "counterpart_details": "cp_details", "counterparty_details": "cp_details",
+    "counterpart details": "cp_details", "osint_details": "cp_details", "cp_details": "cp_details",
+    "osint data found": "cp_osint", "osint_data_found": "cp_osint", "osint": "cp_osint",
+    "osint_found": "cp_osint", "cp_osint": "cp_osint", "counterparty_osint": "cp_osint",
 }
 
-# core columns that must be present; the *_type / *_account columns are optional
+# core columns that must be present; the *_type / *_account / card columns are optional
 REQUIRED = ["date", "direction", "account_no", "sender", "beneficiary",
             "amount", "transaction_method"]
 TYPE_COLS = ["sender_type", "beneficiary_type"]
 NAME_COLS = ["sender_name", "beneficiary_name"]
 ACCT_COLS = ["sender_account", "beneficiary_account", "counterparty_account"]
+CARD_COLS = ["cp_name", "cp_type_raw", "cp_details", "cp_osint"]
 # canonical full schema (for downloads / templates); sender/beneficiary hold the
-# counterparty *account* and sender_name/beneficiary_name the display name.
+# counterparty *account* and sender_name/beneficiary_name the display name. The
+# last four are the counterparty-card columns (see CARD_COLS) stored under their
+# derived names so a session CSV round-trips them.
 SCHEMA = ["date", "direction", "account_no", "sender", "sender_name", "sender_type",
-          "beneficiary", "beneficiary_name", "beneficiary_type", "amount", "transaction_method"]
+          "beneficiary", "beneficiary_name", "beneficiary_type", "amount", "transaction_method",
+          "counterparty", "counterparty_type", "counterparty_details", "counterparty_osint"]
+
+_YES = {"yes", "y", "true", "t", "1", "found", "1.0"}
+
+
+def _norm_yesno(v) -> bool:
+    return str(v).strip().lower() in _YES
 
 
 def export_columns(df: pd.DataFrame) -> list[str]:
@@ -140,7 +160,7 @@ def normalise(df: pd.DataFrame) -> pd.DataFrame:
             f"CSV is missing required column(s): {', '.join(missing)}.\n"
             f"Expected: {', '.join(REQUIRED)}")
 
-    keep = REQUIRED + [c for c in TYPE_COLS + NAME_COLS + ACCT_COLS if c in df.columns]
+    keep = REQUIRED + [c for c in TYPE_COLS + NAME_COLS + ACCT_COLS + CARD_COLS if c in df.columns]
     df = df[keep].copy()
     has_stype = "sender_type" in df.columns
     has_btype = "beneficiary_type" in df.columns
@@ -205,6 +225,36 @@ def normalise(df: pd.DataFrame) -> pd.DataFrame:
         df.loc[df["counterparty_account"].isin(["", "nan"]), "counterparty_account"] = pd.Series(cp_acct, index=df.index)
     else:
         df["counterparty_account"] = cp_acct
+
+    # Counterparty CARD data. When the new schema columns are present they are
+    # authoritative for the card's name/type; details + OSINT-found always come
+    # from the data (empty/False otherwise). Own-account rows are never external.
+    dirs = df["direction"].tolist()
+    raw_name = df["cp_name"].astype(str).tolist() if "cp_name" in df.columns else None
+    raw_type = df["cp_type_raw"].tolist() if "cp_type_raw" in df.columns else None
+    raw_det = df["cp_details"].astype(str).tolist() if "cp_details" in df.columns else None
+    raw_os = df["cp_osint"].tolist() if "cp_osint" in df.columns else None
+    if raw_name is not None:
+        new_cp, new_ct = [], []
+        for i, dirn in enumerate(dirs):
+            if dirn == "own":
+                new_cp.append("Internal transfer"); new_ct.append("Internal"); continue
+            nm = raw_name[i].strip()
+            if not nm or nm.lower() in UNKNOWN_TOKENS:
+                new_cp.append(cp_name[i]); new_ct.append(cp_type[i])
+            else:
+                new_cp.append(nm)
+                nt = _norm_type(raw_type[i]) if raw_type is not None else None
+                new_ct.append(nt or cp_type[i])
+        df["counterparty"] = new_cp
+        df["counterparty_type"] = new_ct
+    df["counterparty_details"] = [
+        ("" if raw_det is None or str(raw_det[i]).strip().lower() in ("nan", "none")
+         else raw_det[i].strip()) if dirs[i] != "own" else ""
+        for i in range(len(df))]
+    df["counterparty_osint"] = [
+        (_norm_yesno(raw_os[i]) if raw_os is not None else False) and dirs[i] != "own"
+        for i in range(len(df))]
     df.drop(columns=["_s_acct", "_b_acct"], inplace=True, errors="ignore")
 
     # period helpers
@@ -263,14 +313,42 @@ def sample_dataframe(seed: int = 7) -> pd.DataFrame:
             return ("", "unknown", "unknown")
         return (cpacct(name_arg), name_arg, etype(name_arg))
 
+    # OSINT enrichment: a handful of counterparties have public-record notes; the
+    # rest have none. Drives the card's "Details from OSINT" + "OSINT found".
+    osint_notes = {
+        "Crescent Bay Holdings": "Shell company; registered in offshore FZ, no trading footprint, "
+                                 "adverse media re: layering.",
+        "Sterling Consulting": "Consultancy with no verifiable clients; director overlaps with two "
+                               "dissolved firms.",
+        "Blue Harbor Trading": "General trading LLC; sanctions-list near-match (unconfirmed).",
+        "Blue Harbor Trdg LLC": "Trade-name variant of Blue Harbor Trading; same beneficial owner.",
+        "Meridian Logistics FZE": "Registered logistics operator; employer of record, no adverse media.",
+        "Omar Haddad": "Individual; prior SAR filed by another institution (2023).",
+    }
+
+    def cp_of(direction, sender, beneficiary):
+        """The external counterparty name for a row (POI/own excluded)."""
+        d = str(direction).lower()
+        if d.startswith("own"):
+            return ("Internal transfer", "unknown")
+        raw = sender if d == "in" else beneficiary
+        n = str(raw).strip().lower()
+        if n in ("poi", "unknown", "unknow", ""):
+            return ("Unknown" if n != "poi" else "POI", "unknown" if n != "poi" else "person")
+        return (raw, etype(raw))
+
     def add(d, direction, acct, sender, beneficiary, amount, method):
         poi_acct = str(acct).split("|")[0]
         sa, sn, st_ = side(sender, poi_acct)
         ba, bn, bt_ = side(beneficiary, poi_acct)
+        cn, ct = cp_of(direction, sender, beneficiary)
+        det = osint_notes.get(cn, "")
         rows.append(dict(date=d, direction=direction, account_no=acct,
                          sender=sa, sender_name=sn, sender_type=st_,
                          beneficiary=ba, beneficiary_name=bn, beneficiary_type=bt_,
-                         amount=round(float(amount), 2), transaction_method=method))
+                         amount=round(float(amount), 2), transaction_method=method,
+                         counterparty_name=cn, counterparty_type=ct,
+                         counterpart_details=det, osint_data_found=("yes" if det else "no")))
 
     employer = "Meridian Logistics FZE"
     utilities = ["Gulf Power & Water", "Etisalat Telecom", "City Municipality"]
@@ -390,5 +468,9 @@ def sample_csv_bytes(seed: int = 7) -> bytes:
         "beneficiary_type": df["beneficiary_type"].map(vocab).fillna("unknown"),
         "amount": df["amount"],
         "transaction_method": df["transaction_method"],
+        "Counterparty_name": df["counterparty"],
+        "counterparty_type": df["counterparty_type"].map(vocab).fillna("unknown"),
+        "counterpart_details": df["counterparty_details"],
+        "OSINT data found": df["counterparty_osint"].map({True: "yes", False: "no"}),
     })
     return out.to_csv(index=False).encode()

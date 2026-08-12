@@ -51,6 +51,9 @@ def _init():
     s.setdefault("tmpl", None)
     s.setdefault("nav", None)
     s.setdefault("kpi_hidden", set())
+    s.setdefault("hidden_charts", set())
+    s.setdefault("hidden_tabs", set())
+    s.setdefault("hide_risk", False)
     s.setdefault("bluf_edit", False)
     s.setdefault("cp_groups", [])
     s.setdefault("cp_next_id", 1)
@@ -95,7 +98,24 @@ def kpi(col, icon, label, value, sub, color):
                  f'<div class="sub">{sub}</div></div>', unsafe_allow_html=True)
 
 
-def chart_header(title, info_key):
+def panel(el_id, title, info_key=None, level=5):
+    """Header for a hideable chart/table. Returns True when the body should
+    render (i.e. the element is not hidden). Admins get a 🙈 hide button and an
+    optional ⓘ info popover; the hidden set is persisted with the session."""
+    if el_id in ss.hidden_charts:
+        return False
+    c1, c2, c3 = st.columns([0.86, 0.07, 0.07])
+    c1.markdown(f"{'#' * level} {title}")
+    if info_key:
+        with c2.popover("ⓘ", use_container_width=True):
+            st.markdown(f"**{L('info')}**")
+            st.write(info_text(info_key, lang))
+    if EDIT and c3.button("🙈", key=f"hide_{el_id}", help=L("hide_el"), use_container_width=True):
+        ss.hidden_charts.add(el_id); st.rerun()
+    return True
+
+
+def chart_header(title, info_key):  # back-compat (non-hideable header)
     c1, c2 = st.columns([0.93, 0.07])
     c1.markdown(f"##### {title}")
     with c2.popover("ⓘ", use_container_width=True):
@@ -123,9 +143,12 @@ def reconcile_cp(agg):
     existing = {m for g in ss.cp_groups for m in g["members"]}
     for nm in agg:
         if nm not in existing:
+            a = agg[nm]
+            # pre-fill card fields from the data (still editable by admins later)
             ss.cp_groups.append(dict(id=ss.cp_next_id, members=[nm], name=nm,
-                                     account=" | ".join(agg[nm]["accounts"]),
-                                     type="", functions="", osint=False))
+                                     account=" | ".join(a["accounts"]),
+                                     type=a.get("type", "") if a.get("type") in ("Person", "Company") else "",
+                                     functions=a.get("details", ""), osint=bool(a.get("osint", False))))
             ss.cp_next_id += 1
     for g in ss.cp_groups:
         g["members"] = [m for m in g["members"] if m in agg]
@@ -150,10 +173,12 @@ def cp_card(g, agg):
 # --------------------------------------------------------------------------- #
 WORK_KEYS = ["poi", "poi_edit", "nodes", "analyst_note", "bluf_override", "df",
              "data_name", "disabled", "chat", "tmpl", "kpi_hidden", "bluf_edit",
-             "cp_groups", "cp_next_id"]
-WIDGET_PREFIXES = ("cpn_", "cpa_", "cpt_", "cpo_", "cpf_", "cps_", "kp_", "rm_", "rs_", "ev_")
+             "cp_groups", "cp_next_id", "hidden_charts", "hidden_tabs", "hide_risk"]
+WIDGET_PREFIXES = ("cpn_", "cpa_", "cpt_", "cpo_", "cpf_", "cps_", "kp_", "rm_", "rs_", "ev_",
+                   "hide_", "cpin_", "cpout_", "dt_", "dc_", "dk_")
 WIDGET_KEYS = {"bluf_ta", "cp_merge_sel", "node_pick", "na", "nb", "np", "navseg",
-               "cp_flow_sel", "cp_sort_sel", "cp_osint_sel", "cp_desc_sel", "focusnode"}
+               "cp_flow_sel", "cp_sort_sel", "cp_osint_sel", "cp_desc_sel", "focusnode",
+               "cp_search", "cp_type_sel", "disp_risk_chk"}
 
 
 def autosave():
@@ -440,8 +465,7 @@ else:
     avatar = (f"<img src='{data_uri(ss.poi['photo'])}'>" if ss.poi.get("photo") else "🧑")
     fields = [(L("nationality"), ss.poi["nationality"]), (L("doc_id"), ss.poi["doc_id"]),
               (L("primary_account"), ss.poi["primary_account"]),
-              (L("analysis_period"), R["period_str"]),
-              (L("risk_rating"), f"{score}/100 · {band}")]
+              (L("analysis_period"), R["period_str"])]
     if ss.poi["extra"]:
         fields.append((L("other_info"), ss.poi["extra"]))
     cells = "".join(f"<div class='poi-field'><span class='k'>{kk}</span>"
@@ -471,12 +495,12 @@ with hc1:
             ss.bluf_override = ""; ss.bluf_edit = False; st.rerun()
     else:
         st.markdown(f"<div class='bluf'><span class='tag'>{IC['bluf']} {L('bluf')}</span>"
-                    f"<h2>{ss.poi['name']} &nbsp;·&nbsp; <span class='num'>{L('risk_word')} {score}/100</span> "
-                    f"<span style='color:{band_c}'>({band})</span></h2>"
+                    f"<h2>{ss.poi['name']}</h2>"
                     f"<p style='margin:0'>{bluf_text}</p></div>", unsafe_allow_html=True)
 with hc2:
-    st.plotly_chart(charts.risk_gauge(score, band, t), use_container_width=True,
-                    config=PLOTLY_CFG, key="gauge")
+    if not ss.hide_risk:
+        st.plotly_chart(charts.risk_gauge(score, band, t), use_container_width=True,
+                        config=PLOTLY_CFG, key="gauge")
 
 # --------------------------------------------------------------------------- #
 #  Statistics (KPIs) — customizable, each with an info + evidence popover
@@ -515,15 +539,53 @@ STAT_EV = {
                              "": f["level"]} for f in active]),
 }
 
+# --------------------------------------------------------------------------- #
+#  Sections + hideable-element registry (drives the nav and the Display panel)
+# --------------------------------------------------------------------------- #
+SECTIONS = [("flow", IC["flow"], L("sec_flow")), ("accounts", IC["accounts"], L("sec_accounts")),
+            ("timeline", IC["timeline"], L("sec_timeline")),
+            ("cp", IC["counterparties"], L("sec_cp")), ("net", IC["network"], L("sec_network")),
+            ("crime", IC["typology"], L("sec_crime")), ("risk", IC["riskdash"], L("sec_risk")),
+            ("txns", IC["transactions"], L("sec_txns")), ("chat", "💬", L("sec_chat")),
+            ("export", IC["export"], L("sec_export"))]
+SEC_LABEL = {sid: f"{ic} {nm}" for sid, ic, nm in SECTIONS}
+CHART_REG = [
+    ("flow", [("sankey", L("sankey_title")), ("acct_throughput", L("acct_throughput")),
+              ("type_split", L("inflow_by_type")), ("account_analysis", L("account_analysis"))]),
+    ("accounts", [("acc_table", L("acc_table_title")), ("spike_txns", L("spike_txns_title")),
+                  ("acc_top", L("acc_top_title")), ("multi_acct", L("multi_title"))]),
+    ("timeline", [("timeline", L("tl_title"))]),
+    ("cp", [("top_senders", L("top_senders")), ("top_bens", L("top_bens")),
+            ("methods", L("methods_title")), ("cp_cards", L("cp_cards_title"))]),
+    ("net", [("network", L("net_title"))]),
+    ("crime", [("crime_findings", L("crime_title"))]),
+    ("risk", [("risk_contrib", L("risk_contrib")), ("risk_meaning", L("risk_meaning")),
+              ("acct_cp_risk", L("acct_cp_risk"))]),
+    ("txns", [("top10_in", L("top10_in")), ("top10_out", L("top10_out")), ("all_txns", L("all_txns"))]),
+]
+
+# ---- Display settings: hide/unhide tabs, charts, KPIs and the risk score ----
 if EDIT:
-    with st.popover(f"⚙️ {L('customize_stats')}"):
-        st.caption(L("stat_show"))
-        for sid, icon, label, *_ in STATS:
-            shown = st.checkbox(f"{icon} {label}", value=sid not in ss.kpi_hidden, key=f"kp_{sid}")
-            if shown:
-                ss.kpi_hidden.discard(sid)
-            else:
-                ss.kpi_hidden.add(sid)
+    with st.popover(f"🎛️ {L('display_settings')}"):
+        st.caption(L("disp_hint"))
+        dtab, dchart, dkpi, drisk = st.tabs(
+            [L("disp_tabs"), L("disp_charts"), L("disp_kpis"), L("disp_risk")])
+        with dtab:
+            for sid, ic, nm in SECTIONS:
+                shown = st.checkbox(f"{ic} {nm}", value=sid not in ss.hidden_tabs, key=f"dt_{sid}")
+                (ss.hidden_tabs.discard if shown else ss.hidden_tabs.add)(sid)
+        with dchart:
+            for tab_id, items in CHART_REG:
+                st.markdown(f"**{SEC_LABEL.get(tab_id, tab_id)}**")
+                for cid, clabel in items:
+                    shown = st.checkbox(clabel, value=cid not in ss.hidden_charts, key=f"dc_{cid}")
+                    (ss.hidden_charts.discard if shown else ss.hidden_charts.add)(cid)
+        with dkpi:
+            for sid, icon, label, *_ in STATS:
+                shown = st.checkbox(f"{icon} {label}", value=sid not in ss.kpi_hidden, key=f"kp_{sid}")
+                (ss.kpi_hidden.discard if shown else ss.kpi_hidden.add)(sid)
+        with drisk:
+            ss.hide_risk = not st.checkbox(L("disp_show_risk"), value=not ss.hide_risk, key="disp_risk_chk")
 
 visible = [s for s in STATS if s[0] not in ss.kpi_hidden]
 for i in range(0, len(visible), 5):
@@ -549,18 +611,13 @@ for i in range(0, len(visible), 5):
 st.write("")
 
 # --------------------------------------------------------------------------- #
-#  Navigation (segmented → conditional render → charts animate on each open)
+#  Navigation (hidden tabs are dropped from the nav)
 # --------------------------------------------------------------------------- #
-SECTIONS = [("flow", IC["flow"], L("sec_flow")), ("accounts", IC["accounts"], L("sec_accounts")),
-            ("timeline", IC["timeline"], L("sec_timeline")),
-            ("cp", IC["counterparties"], L("sec_cp")), ("net", IC["network"], L("sec_network")),
-            ("crime", IC["typology"], L("sec_crime")), ("risk", IC["riskdash"], L("sec_risk")),
-            ("txns", IC["transactions"], L("sec_txns")), ("chat", "💬", L("sec_chat")),
-            ("export", IC["export"], L("sec_export"))]
-labels = [f"{ic} {nm}" for _, ic, nm in SECTIONS]
+visible_sections = [s for s in SECTIONS if s[0] not in ss.hidden_tabs] or SECTIONS
+labels = [f"{ic} {nm}" for _, ic, nm in visible_sections]
 choice = st.segmented_control("nav", labels, default=labels[0],
                               label_visibility="collapsed", key="navseg") or labels[0]
-sec = SECTIONS[labels.index(choice)][0]
+sec = visible_sections[labels.index(choice)][0] if choice in labels else visible_sections[0][0]
 
 # ---- Floating counterparty-lookup FAB (visible on every tab) ----
 with st.container(key="cp_fab"):
@@ -572,42 +629,40 @@ with st.container(key="cp_fab"):
 if sec == "flow":
     c1, c2 = st.columns([0.62, 0.38])
     with c1:
-        chart_header(L("sankey_title"), "sankey")
-        st.plotly_chart(charts.sankey(R, t, lang), use_container_width=True, config=PLOTLY_CFG, key="sk")
+        if panel("sankey", L("sankey_title"), "sankey"):
+            st.plotly_chart(charts.sankey(R, t, lang), use_container_width=True, config=PLOTLY_CFG, key="sk")
     with c2:
-        chart_header(L("acct_throughput"), "accounts")
-        st.plotly_chart(charts.accounts_bar(R["accounts"], t), use_container_width=True, config=PLOTLY_CFG, key="ab")
-        chart_header(L("inflow_by_type"), "type_split")
-        st.plotly_chart(charts.type_split(d, t), use_container_width=True, config=PLOTLY_CFG, key="ts")
-    st.markdown(f"##### 🏦 {L('account_analysis')}")
-    st.dataframe(pd.DataFrame([{
-        L("account"): a["account"], L("kpi_in"): analytics.money(a["inflow"]),
-        L("kpi_out"): analytics.money(a["outflow"]), L("kpi_txns"): a["count"],
-        L("kpi_largest"): analytics.money(a["largest"]), L("col_cp"): a["top_counterparty"],
-        L("sec_risk"): f"{a['risk']} ({a['band']})"} for a in R["accounts"]]),
-        use_container_width=True, hide_index=True)
+        if panel("acct_throughput", L("acct_throughput"), "accounts"):
+            st.plotly_chart(charts.accounts_bar(R["accounts"], t), use_container_width=True, config=PLOTLY_CFG, key="ab")
+        if panel("type_split", L("inflow_by_type"), "type_split"):
+            st.plotly_chart(charts.type_split(d, t), use_container_width=True, config=PLOTLY_CFG, key="ts")
+    if panel("account_analysis", f"🏦 {L('account_analysis')}"):
+        st.dataframe(pd.DataFrame([{
+            L("account"): a["account"], L("kpi_in"): analytics.money(a["inflow"]),
+            L("kpi_out"): analytics.money(a["outflow"]), L("kpi_txns"): a["count"],
+            L("kpi_largest"): analytics.money(a["largest"]), L("col_cp"): a["top_counterparty"],
+            L("sec_risk"): f"{a['risk']} ({a['band']})"} for a in R["accounts"]]),
+            use_container_width=True, hide_index=True)
 
 # ---- Accounts Details ----
 elif sec == "accounts":
     ad = analytics.account_details(d)
-    chart_header(L("acc_table_title"), "accounts")
-    st.dataframe(pd.DataFrame([{
-        L("account"): a["account"], L("col_incoming"): analytics.money(a["inflow"]),
-        L("col_outgoing"): analytics.money(a["outflow"]), L("col_balance"): analytics.money(a["balance"]),
-        L("col_count"): a["count"], L("col_spike"): ("🔴 " + L("yes")) if a["spike"] else L("no")}
-        for a in ad]), use_container_width=True, hide_index=True)
-
-    with st.expander(f"🧮 {L('balance_help')}"):
+    if panel("acc_table", L("acc_table_title"), "accounts"):
         st.dataframe(pd.DataFrame([{
-            L("account"): a["account"], L("col_in_ext"): analytics.money(a["in_ext"]),
-            L("col_in_own"): analytics.money(a["in_own"]), L("col_out_ext"): analytics.money(a["out_ext"]),
-            L("col_out_own"): analytics.money(a["out_own"]), L("col_balance_eq"): analytics.money(a["balance"])}
+            L("account"): a["account"], L("col_incoming"): analytics.money(a["inflow"]),
+            L("col_outgoing"): analytics.money(a["outflow"]), L("col_balance"): analytics.money(a["balance"]),
+            L("col_count"): a["count"], L("col_spike"): ("🔴 " + L("yes")) if a["spike"] else L("no")}
             for a in ad]), use_container_width=True, hide_index=True)
-        st.caption(L("balance_formula"))
+        with st.expander(f"🧮 {L('balance_help')}"):
+            st.dataframe(pd.DataFrame([{
+                L("account"): a["account"], L("col_in_ext"): analytics.money(a["in_ext"]),
+                L("col_in_own"): analytics.money(a["in_own"]), L("col_out_ext"): analytics.money(a["out_ext"]),
+                L("col_out_own"): analytics.money(a["out_own"]), L("col_balance_eq"): analytics.money(a["balance"])}
+                for a in ad]), use_container_width=True, hide_index=True)
+            st.caption(L("balance_formula"))
 
     spiky = [a for a in ad if a["spike"]]
-    if spiky:
-        st.markdown(f"##### ⚡ {L('spike_txns_title')}")
+    if spiky and panel("spike_txns", f"⚡ {L('spike_txns_title')}"):
         for a in spiky:
             stx = analytics.account_spike_txns(d, a["account"], a["spike_months"])
             with st.expander(L("spike_view").format(acc=a["account"], n=len(stx))):
@@ -619,42 +674,42 @@ elif sec == "accounts":
                 sh = sh.rename(columns={"flow": L("col_flow")})  # all dataset columns kept
                 st.dataframe(sh, use_container_width=True, hide_index=True, height=min(340, 44 + 28 * len(sh)))
 
-    st.markdown(f"##### 👥 {L('acc_top_title')}")
-    for a in ad:
-        with st.expander(L("acc_expander").format(acc=a["account"])):
-            sc1, sc2 = st.columns(2)
-            with sc1:
-                st.markdown(f"**⬇ {L('acc_top_senders')}**")
-                snd = analytics.account_top(d, a["account"], "in", 5)
-                st.dataframe(pd.DataFrame([{L("col_cp"): x["name"], L("cp_type"): x["type"],
-                                            L("col_amount"): analytics.money(x["amount"]), "#": x["count"]} for x in snd])
-                             if snd else pd.DataFrame({L("col_cp"): ["—"]}), use_container_width=True, hide_index=True)
-            with sc2:
-                st.markdown(f"**⬆ {L('acc_top_receivers')}**")
-                rcv = analytics.account_top(d, a["account"], "out", 5)
-                st.dataframe(pd.DataFrame([{L("col_cp"): x["name"], L("cp_type"): x["type"],
-                                            L("col_amount"): analytics.money(x["amount"]), "#": x["count"]} for x in rcv])
-                             if rcv else pd.DataFrame({L("col_cp"): ["—"]}), use_container_width=True, hide_index=True)
+    if panel("acc_top", f"👥 {L('acc_top_title')}"):
+        for a in ad:
+            with st.expander(L("acc_expander").format(acc=a["account"])):
+                sc1, sc2 = st.columns(2)
+                with sc1:
+                    st.markdown(f"**⬇ {L('acc_top_senders')}**")
+                    snd = analytics.account_top(d, a["account"], "in", 5)
+                    st.dataframe(pd.DataFrame([{L("col_cp"): x["name"], L("cp_type"): x["type"],
+                                                L("col_amount"): analytics.money(x["amount"]), "#": x["count"]} for x in snd])
+                                 if snd else pd.DataFrame({L("col_cp"): ["—"]}), use_container_width=True, hide_index=True)
+                with sc2:
+                    st.markdown(f"**⬆ {L('acc_top_receivers')}**")
+                    rcv = analytics.account_top(d, a["account"], "out", 5)
+                    st.dataframe(pd.DataFrame([{L("col_cp"): x["name"], L("cp_type"): x["type"],
+                                                L("col_amount"): analytics.money(x["amount"]), "#": x["count"]} for x in rcv])
+                                 if rcv else pd.DataFrame({L("col_cp"): ["—"]}), use_container_width=True, hide_index=True)
 
-    st.markdown(f"##### 🔗 {L('multi_title')}")
-    st.caption(L("multi_note"))
-    minacc = st.number_input(L("min_accounts"), min_value=2, max_value=max(2, k["n_accounts"]), value=2, step=1)
-    ma = analytics.multi_account_counterparties(d, int(minacc))
-    if ma:
-        st.dataframe(pd.DataFrame([{
-            L("col_cp"): m["counterparty"], L("cp_type"): m["type"], L("col_naccounts"): m["n_accounts"],
-            L("col_accounts"): " | ".join(m["accounts"]),
-            L("col_incoming"): analytics.money(m["inflow"]), L("col_outgoing"): analytics.money(m["outflow"]),
-            L("col_direction"): L("dir_both") if m["direction"] == "both" else (L("dir_in") if m["direction"] == "in" else L("dir_out"))}
-            for m in ma]), use_container_width=True, hide_index=True)
-    else:
-        st.info(L("multi_none"))
+    if panel("multi_acct", f"🔗 {L('multi_title')}"):
+        st.caption(L("multi_note"))
+        minacc = st.number_input(L("min_accounts"), min_value=2, max_value=max(2, k["n_accounts"]), value=2, step=1)
+        ma = analytics.multi_account_counterparties(d, int(minacc))
+        if ma:
+            st.dataframe(pd.DataFrame([{
+                L("col_cp"): m["counterparty"], L("cp_type"): m["type"], L("col_naccounts"): m["n_accounts"],
+                L("col_accounts"): " | ".join(m["accounts"]),
+                L("col_incoming"): analytics.money(m["inflow"]), L("col_outgoing"): analytics.money(m["outflow"]),
+                L("col_direction"): L("dir_both") if m["direction"] == "both" else (L("dir_in") if m["direction"] == "in" else L("dir_out"))}
+                for m in ma]), use_container_width=True, hide_index=True)
+        else:
+            st.info(L("multi_none"))
 
 # ---- Timeline ----
 elif sec == "timeline":
-    chart_header(L("tl_title"), "timeline")
-    st.plotly_chart(charts.timeline(R["timeline"], R["spikes"], t, lang),
-                    use_container_width=True, config=PLOTLY_CFG, key="tl")
+    if panel("timeline", L("tl_title"), "timeline"):
+        st.plotly_chart(charts.timeline(R["timeline"], R["spikes"], t, lang),
+                        use_container_width=True, config=PLOTLY_CFG, key="tl")
     st.markdown(f"##### ⚡ {L('spike_inspect')}")
     spikes = sorted(set(R["spikes"]["inflow"] + R["spikes"]["outflow"]))
     if not spikes:
@@ -682,111 +737,138 @@ elif sec == "timeline":
 elif sec == "cp":
     c1, c2 = st.columns(2)
     with c1:
-        chart_header(L("top_senders"), "senders")
-        st.plotly_chart(charts.ranked_bar(R["senders"], "green", t), use_container_width=True, config=PLOTLY_CFG, key="rs")
+        if panel("top_senders", L("top_senders"), "senders"):
+            st.plotly_chart(charts.ranked_bar(R["senders"], "green", t), use_container_width=True, config=PLOTLY_CFG, key="rs")
     with c2:
-        chart_header(L("top_bens"), "beneficiaries")
-        st.plotly_chart(charts.ranked_bar(R["beneficiaries"], "red", t), use_container_width=True, config=PLOTLY_CFG, key="rb")
-    chart_header(L("methods_title"), "methods")
-    mc1, mc2 = st.columns(2)
-    mc1.plotly_chart(charts.method_donut(R["methods"], t), use_container_width=True, config=PLOTLY_CFG, key="md")
-    mc2.plotly_chart(charts.method_bar(R["methods"], t), use_container_width=True, config=PLOTLY_CFG, key="mbar")
+        if panel("top_bens", L("top_bens"), "beneficiaries"):
+            st.plotly_chart(charts.ranked_bar(R["beneficiaries"], "red", t), use_container_width=True, config=PLOTLY_CFG, key="rb")
+    if panel("methods", L("methods_title"), "methods"):
+        mc1, mc2 = st.columns(2)
+        mc1.plotly_chart(charts.method_donut(R["methods"], t), use_container_width=True, config=PLOTLY_CFG, key="md")
+        mc2.plotly_chart(charts.method_bar(R["methods"], t), use_container_width=True, config=PLOTLY_CFG, key="mbar")
 
     # ---- editable, mergeable counterparty cards ----
     st.divider()
-    st.markdown(f"##### 🪪 {L('cp_cards_title')} "
-                f"<span class='muted'>· {len(CP_CARDS)} {L('cp_count')}</span>", unsafe_allow_html=True)
-    fcol = st.columns([0.3, 0.26, 0.28, 0.16])
-    flow = fcol[0].segmented_control(
-        L("cp_flow"), [L("cp_flow_all"), L("cp_flow_in"), L("cp_flow_out"), L("cp_flow_both")],
-        default=L("cp_flow_all"), key="cp_flow_sel")
-    sort_by = fcol[1].selectbox(L("cp_sort"), [L("cp_sort_in"), L("cp_sort_out"), L("cp_sort_name")], key="cp_sort_sel")
-    osint_f = fcol[2].segmented_control(
-        L("cp_osint_filter"), [L("cp_osint_all"), L("cp_osint_yes"), L("cp_osint_no")],
-        default=L("cp_osint_all"), key="cp_osint_sel")
-    desc = fcol[3].toggle(L("cp_desc"), value=True, key="cp_desc_sel")
+    if panel("cp_cards", f"🪪 {L('cp_cards_title')} · {len(CP_CARDS)} {L('cp_count')}"):
+        # search + type filter
+        srow = st.columns([0.55, 0.45])
+        q = srow[0].text_input(L("cp_search"), key="cp_search", placeholder=L("cp_search"),
+                               label_visibility="collapsed")
+        cp_type_f = srow[1].segmented_control(
+            L("cp_type_filter"), [L("cp_type_all"), L("cp_type_company"), L("cp_type_person"), L("cp_type_unknown")],
+            default=L("cp_type_all"), key="cp_type_sel")
+        fcol = st.columns([0.3, 0.26, 0.28, 0.16])
+        flow = fcol[0].segmented_control(
+            L("cp_flow"), [L("cp_flow_all"), L("cp_flow_in"), L("cp_flow_out"), L("cp_flow_both")],
+            default=L("cp_flow_all"), key="cp_flow_sel")
+        sort_by = fcol[1].selectbox(L("cp_sort"), [L("cp_sort_in"), L("cp_sort_out"), L("cp_sort_name")], key="cp_sort_sel")
+        osint_f = fcol[2].segmented_control(
+            L("cp_osint_filter"), [L("cp_osint_all"), L("cp_osint_yes"), L("cp_osint_no")],
+            default=L("cp_osint_all"), key="cp_osint_sel")
+        desc = fcol[3].toggle(L("cp_desc"), value=True, key="cp_desc_sel")
 
-    # merge control (admins only)
-    if EDIT:
-        label_of = {f"{c['name']} · {c['account'] or '—'}  [#{c['id']}]": c["id"] for c in CP_CARDS}
-        msel = st.multiselect(L("cp_merge_label"), list(label_of), key="cp_merge_sel")
-        if st.button(f"🔗 {L('cp_merge_btn')}", disabled=len(msel) < 2):
-            ids = {label_of[l] for l in msel}
-            groups = [g for g in ss.cp_groups if g["id"] in ids]
-            members = [m for g in groups for m in g["members"]]
-            accts = " | ".join(sorted({a for g in groups for a in (g["account"].split(" | ") if g["account"] else []) if a}))
-            first = groups[0]
-            newg = dict(id=ss.cp_next_id, members=members, name=first["name"], account=accts,
-                        type=first["type"] or next((g["type"] for g in groups if g["type"]), ""),
-                        functions=first["functions"] or next((g["functions"] for g in groups if g["functions"]), ""),
-                        osint=any(g.get("osint") for g in groups))
-            ss.cp_next_id += 1
-            ss.cp_groups = [g for g in ss.cp_groups if g["id"] not in ids] + [newg]
-            st.rerun()
+        # merge control (admins only)
+        if EDIT:
+            label_of = {f"{c['name']} · {c['account'] or '—'}  [#{c['id']}]": c["id"] for c in CP_CARDS}
+            msel = st.multiselect(L("cp_merge_label"), list(label_of), key="cp_merge_sel")
+            if st.button(f"🔗 {L('cp_merge_btn')}", disabled=len(msel) < 2):
+                ids = {label_of[l] for l in msel}
+                groups = [g for g in ss.cp_groups if g["id"] in ids]
+                members = [m for g in groups for m in g["members"]]
+                accts = " | ".join(sorted({a for g in groups for a in (g["account"].split(" | ") if g["account"] else []) if a}))
+                first = groups[0]
+                newg = dict(id=ss.cp_next_id, members=members, name=first["name"], account=accts,
+                            type=first["type"] or next((g["type"] for g in groups if g["type"]), ""),
+                            functions=first["functions"] or next((g["functions"] for g in groups if g["functions"]), ""),
+                            osint=any(g.get("osint") for g in groups))
+                ss.cp_next_id += 1
+                ss.cp_groups = [g for g in ss.cp_groups if g["id"] not in ids] + [newg]
+                st.rerun()
 
-    # filter + sort
-    cards = CP_CARDS
-    if flow == L("cp_flow_in"):
-        cards = [c for c in cards if c["total_in"] > 0]
-    elif flow == L("cp_flow_out"):
-        cards = [c for c in cards if c["total_out"] > 0]
-    elif flow == L("cp_flow_both"):
-        cards = [c for c in cards if c["total_in"] > 0 and c["total_out"] > 0]
-    if osint_f == L("cp_osint_yes"):
-        cards = [c for c in cards if c["osint"]]
-    elif osint_f == L("cp_osint_no"):
-        cards = [c for c in cards if not c["osint"]]
-    keyf = {L("cp_sort_in"): lambda c: c["total_in"], L("cp_sort_out"): lambda c: c["total_out"],
-            L("cp_sort_name"): lambda c: c["name"].lower()}[sort_by]
-    cards = sorted(cards, key=keyf, reverse=desc if sort_by != L("cp_sort_name") else not desc)
+        # filter + sort
+        cards = CP_CARDS
+        if q:
+            ql = q.strip().lower()
+            cards = [c for c in cards if ql in (c["name"] or "").lower() or ql in (c["account"] or "").lower()]
+        _tc = {L("cp_type_company"): "Company", L("cp_type_person"): "Person", L("cp_type_unknown"): "Unknown"}.get(cp_type_f)
+        if _tc:
+            cards = [c for c in cards if c["tclass"] == _tc]
+        if flow == L("cp_flow_in"):
+            cards = [c for c in cards if c["total_in"] > 0]
+        elif flow == L("cp_flow_out"):
+            cards = [c for c in cards if c["total_out"] > 0]
+        elif flow == L("cp_flow_both"):
+            cards = [c for c in cards if c["total_in"] > 0 and c["total_out"] > 0]
+        if osint_f == L("cp_osint_yes"):
+            cards = [c for c in cards if c["osint"]]
+        elif osint_f == L("cp_osint_no"):
+            cards = [c for c in cards if not c["osint"]]
+        keyf = {L("cp_sort_in"): lambda c: c["total_in"], L("cp_sort_out"): lambda c: c["total_out"],
+                L("cp_sort_name"): lambda c: c["name"].lower()}[sort_by]
+        cards = sorted(cards, key=keyf, reverse=desc if sort_by != L("cp_sort_name") else not desc)
 
-    icon_of = {"Company": "🏢", "Person": "👤", "Unknown": "❓"}
-    grp_by_id = {g["id"]: g for g in ss.cp_groups}
-    per_row = 3
-    for i in range(0, len(cards), per_row):
-        cols = st.columns(per_row)
-        for j, c in enumerate(cards[i:i + per_row]):
-            g = grp_by_id[c["id"]]
-            with cols[j].container(border=True):
-                hc = st.columns([0.16, 0.84])
-                hc[0].markdown(f"<div style='font-size:30px'>{icon_of.get(c['tclass'],'❓')}</div>",
-                               unsafe_allow_html=True)
-                if EDIT:
-                    g["name"] = hc[1].text_input(L("col_cp"), value=g["name"], key=f"cpn_{c['id']}",
-                                                 label_visibility="collapsed")
-                    g["account"] = st.text_input(L("cp_account"), value=g["account"], key=f"cpa_{c['id']}")
-                    g["type"] = st.text_input(L("cp_type_field"), value=g["type"], key=f"cpt_{c['id']}",
-                                              placeholder=L("cp_fill"))
-                    g["osint"] = st.toggle(f"🔎 {L('cp_osint')}", value=g.get("osint", False), key=f"cpo_{c['id']}")
-                    g["functions"] = st.text_area(L("cp_functions"), value=g["functions"], key=f"cpf_{c['id']}",
-                                                  placeholder=L("cp_fill"), height=80)
-                else:
-                    hc[1].markdown(f"**{g['name'] or '—'}**")
+        def _cp_ev(edf):
+            if len(edf):
+                sh = edf.copy(); sh["date"] = pd.to_datetime(sh["date"]).dt.strftime("%Y-%m-%d")
+                sh["amount"] = sh["amount"].map(lambda x: f"{x:,.0f}")
+                st.dataframe(sh, use_container_width=True, hide_index=True, height=min(300, 44 + 28 * len(sh)))
+            else:
+                st.caption("—")
+
+        icon_of = {"Company": "🏢", "Person": "👤", "Unknown": "❓"}
+        grp_by_id = {g["id"]: g for g in ss.cp_groups}
+        per_row = 3
+        for i in range(0, len(cards), per_row):
+            cols = st.columns(per_row)
+            for j, c in enumerate(cards[i:i + per_row]):
+                g = grp_by_id[c["id"]]
+                with cols[j].container(border=True):
+                    hc = st.columns([0.16, 0.84])
+                    hc[0].markdown(f"<div style='font-size:30px'>{icon_of.get(c['tclass'],'❓')}</div>",
+                                   unsafe_allow_html=True)
+                    if EDIT:
+                        g["name"] = hc[1].text_input(L("col_cp"), value=g["name"], key=f"cpn_{c['id']}",
+                                                     label_visibility="collapsed")
+                        g["account"] = st.text_input(L("cp_account"), value=g["account"], key=f"cpa_{c['id']}")
+                        g["type"] = st.text_input(L("cp_type_field"), value=g["type"], key=f"cpt_{c['id']}",
+                                                  placeholder=L("cp_fill"))
+                        g["osint"] = st.toggle(f"🔎 {L('cp_osint')}", value=g.get("osint", False), key=f"cpo_{c['id']}")
+                        g["functions"] = st.text_area(L("cp_functions"), value=g["functions"], key=f"cpf_{c['id']}",
+                                                      placeholder=L("cp_fill"), height=80)
+                    else:
+                        hc[1].markdown(f"**{g['name'] or '—'}**")
+                        st.markdown(
+                            f"**{L('cp_account')}:** {g['account'] or '—'}  \n"
+                            f"**{L('cp_type_field')}:** {g['type'] or '—'}  \n"
+                            f"🔎 {L('cp_osint')}: {'✓' if g.get('osint') else '—'}")
+                        if g["functions"]:
+                            st.caption(f"{L('cp_functions')}: {g['functions']}")
                     st.markdown(
-                        f"**{L('cp_account')}:** {g['account'] or '—'}  \n"
-                        f"**{L('cp_type_field')}:** {g['type'] or '—'}  \n"
-                        f"🔎 {L('cp_osint')}: {'✓' if g.get('osint') else '—'}")
-                    if g["functions"]:
-                        st.caption(f"{L('cp_functions')}: {g['functions']}")
-                st.markdown(
-                    f"<div style='display:flex;gap:8px;margin-top:4px'>"
-                    f"<div style='flex:1;background:{t['green']}1e;border:1px solid {t['green']}66;border-radius:8px;padding:6px 9px'>"
-                    f"<div style='font-size:10px;color:{t['mute']};font-family:var(--mono)'>⬇ {L('cp_in')}</div>"
-                    f"<div style='font-family:var(--mono);font-weight:700;color:{t['green']}'>{analytics.money(c['total_in'])}</div></div>"
-                    f"<div style='flex:1;background:{t['red']}1e;border:1px solid {t['red']}66;border-radius:8px;padding:6px 9px'>"
-                    f"<div style='font-size:10px;color:{t['mute']};font-family:var(--mono)'>⬆ {L('cp_out')}</div>"
-                    f"<div style='font-family:var(--mono);font-weight:700;color:{t['red']}'>{analytics.money(c['total_out'])}</div></div></div>",
-                    unsafe_allow_html=True)
-                if len(c["members"]) > 1:
-                    st.caption(f"🔗 {L('cp_merged_of')}: " + ", ".join(c["members"]))
-                    if EDIT and st.button(f"✂️ {L('cp_split')}", key=f"cps_{c['id']}", use_container_width=True):
-                        ss.cp_groups = [x for x in ss.cp_groups if x["id"] != c["id"]]
-                        st.rerun()
+                        f"<div style='display:flex;gap:8px;margin-top:4px'>"
+                        f"<div style='flex:1;background:{t['green']}1e;border:1px solid {t['green']}66;border-radius:8px;padding:6px 9px'>"
+                        f"<div style='font-size:10px;color:{t['mute']};font-family:var(--mono)'>⬇ {L('cp_in')}</div>"
+                        f"<div style='font-family:var(--mono);font-weight:700;color:{t['green']}'>{analytics.money(c['total_in'])}</div></div>"
+                        f"<div style='flex:1;background:{t['red']}1e;border:1px solid {t['red']}66;border-radius:8px;padding:6px 9px'>"
+                        f"<div style='font-size:10px;color:{t['mute']};font-family:var(--mono)'>⬆ {L('cp_out')}</div>"
+                        f"<div style='font-family:var(--mono);font-weight:700;color:{t['red']}'>{analytics.money(c['total_out'])}</div></div></div>",
+                        unsafe_allow_html=True)
+                    # in/out evidence (merge-aware: covers every member's transactions)
+                    _sub = d[d.counterparty.isin(c["members"])]
+                    ev1, ev2 = st.columns(2)
+                    with ev1.popover(f"⬇ {L('cp_ev_in')}", use_container_width=True):
+                        _cp_ev(_sub[_sub.direction == "in"][analytics.EVID_COLS])
+                    with ev2.popover(f"⬆ {L('cp_ev_out')}", use_container_width=True):
+                        _cp_ev(_sub[_sub.direction == "out"][analytics.EVID_COLS])
+                    if len(c["members"]) > 1:
+                        st.caption(f"🔗 {L('cp_merged_of')}: " + ", ".join(c["members"]))
+                        if EDIT and st.button(f"✂️ {L('cp_split')}", key=f"cps_{c['id']}", use_container_width=True):
+                            ss.cp_groups = [x for x in ss.cp_groups if x["id"] != c["id"]]
+                            st.rerun()
 
 # ---- Link Analysis ----
 elif sec == "net":
     import streamlit.components.v1 as components
-    chart_header(L("net_title"), "network")
+    _net_open = panel("network", L("net_title"), "network")
     # legend — node classes (distinct shapes) + edge directions
     def swatch(shape, c):
         base = f"display:inline-block;width:13px;height:13px;box-shadow:0 0 8px {c};"
@@ -809,120 +891,108 @@ elif sec == "net":
           ("diamond", t["unknown"], L("lg_unknown")),
           ("line", t["green"], L("lg_in")), ("line", t["red"], L("lg_out")),
           ("line", t["violet"], L("lg_own"))]
-    chips = " ".join(
-        f"<span style='display:inline-flex;align-items:center;gap:7px;margin-inline-end:16px;"
-        f"font-family:var(--mono);font-size:12px;color:{t['mute']}'>"
-        f"{swatch(shape, c)}{lab}</span>" for shape, c, lab in lg)
-    st.markdown(f"<div class='card' style='padding:10px 14px'>{chips}</div>", unsafe_allow_html=True)
-    st.caption("🖱️ " + L("net_help"))
-    cp_by_member = {m: c for c in CP_CARDS for m in c["members"]}
-    html = network.pyvis_html(d, R["entity_risk"], ss.nodes, t, height=620, lang=lang,
-                              cp_info=cp_by_member)
-    components.html(html, height=650, scrolling=False)
-    u = network.node_universe(d)
-    lc1, lc2 = st.columns(2)
-    with lc1:
-        if EDIT:
-            st.markdown(f"**✏️ {L('annotate_node')}**")
-            pick = st.selectbox(L("node"), u, key="node_pick")
-            ann = ss.nodes.get(pick, {})
-            with st.form("nodeform"):
-                dn = st.text_input(L("display_name"), ann.get("display_name", ""))
-                did = st.text_input(L("doc_id"), ann.get("doc_id", ""))
-                note = st.text_area(L("notes"), ann.get("notes", ""), height=68)
-                nph = st.file_uploader(L("photo"), type=["png", "jpg", "jpeg"], key="np")
-                if st.form_submit_button(f"💾 {L('save_node')}", use_container_width=True, type="primary"):
-                    na = dict(display_name=dn, doc_id=did, notes=note, photo=ann.get("photo"))
-                    if nph is not None:
-                        na["photo"] = data_uri(nph.read(), "image/jpeg" if nph.name.lower().endswith(("jpg", "jpeg")) else "image/png")
-                    ss.nodes[pick] = na; st.success("✓"); st.rerun()
-        else:
-            st.markdown(f"**✏️ {L('annotate_node')}**")
-            st.caption(f"🔒 {L('viewer_readonly')}")
-    with lc2:
-        st.markdown(f"**🔎 {L('txn_between')}**")
-        na = st.selectbox(L("node_a"), u, index=0, key="na")
-        nb = st.selectbox(L("node_b"), u, index=min(1, len(u) - 1), key="nb")
-        et = network.edge_transactions(d, na, nb)
-        if len(et):
-            st.caption(f"{len(et)} · {L('total')} {analytics.money(et.amount.sum())}")
-            show = et.copy(); show["date"] = show["date"].dt.strftime("%Y-%m-%d")
-            show["amount"] = show["amount"].map(lambda x: f"{x:,.0f}")
-            st.dataframe(show, use_container_width=True, hide_index=True, height=280)
-        else:
+    if _net_open:
+        chips = " ".join(
+            f"<span style='display:inline-flex;align-items:center;gap:7px;margin-inline-end:16px;"
+            f"font-family:var(--mono);font-size:12px;color:{t['mute']}'>"
+            f"{swatch(shape, c)}{lab}</span>" for shape, c, lab in lg)
+        st.markdown(f"<div class='card' style='padding:10px 14px'>{chips}</div>", unsafe_allow_html=True)
+        st.caption("🖱️ " + L("net_help"))
+        cp_by_member = {m: c for c in CP_CARDS for m in c["members"]}
+
+        # filter the graph to the transactions between two chosen nodes
+        u = network.node_universe(d)
+        ALL = L("cp_flow_all")
+        fc = st.columns(2)
+        na = fc[0].selectbox(L("node_a"), [ALL] + u, index=0, key="na")
+        nb = fc[1].selectbox(L("node_b"), [ALL] + u, index=0, key="nb")
+        pair = na != ALL and nb != ALL and na != nb
+        gdf = network.edge_subset(d, na, nb) if pair else d
+
+        if pair and not len(gdf):
             st.info(L("no_direct"))
+        else:
+            html = network.pyvis_html(gdf, R["entity_risk"], {}, t, height=620, lang=lang,
+                                      cp_info=cp_by_member)
+            components.html(html, height=650, scrolling=False)
+            if pair:
+                et = network.edge_transactions(d, na, nb)
+                st.caption(f"{len(et)} · {L('total')} {analytics.money(et.amount.sum())}")
+                show = et.copy(); show["date"] = show["date"].dt.strftime("%Y-%m-%d")
+                show["amount"] = show["amount"].map(lambda x: f"{x:,.0f}")
+                st.dataframe(show, use_container_width=True, hide_index=True, height=280)
 
 # ---- Financial Crime ----
 elif sec == "crime":
-    st.markdown(f"##### {IC['typology']} {L('crime_title')} "
-                f"<span class='muted'>— {len(active)} · {L('crime_note')}</span>", unsafe_allow_html=True)
-    for f in active:
-        col = {"High": t["red"], "Medium": t["amber"], "Low": t["green"]}[f["level"]]
-        cc = st.columns([0.72, 0.14, 0.14])
-        with cc[0]:
-            st.markdown(
-                f"<div class='find' style='border-left-color:{col}'>"
-                f"<div class='ttl'>{f['icon']} {typ_title(f['key'], lang, f['title'])} "
-                f"<span class='pill pill-{f['level']}'>{f['level']}</span> "
-                f"<span class='pill' style='background:{t['blue']}22;color:{t['blue']};border:1px solid {t['blue']}66'>{L('conf')}: {f['confidence']}</span></div>"
-                f"<div class='why'>{typ_plain(f['key'], lang)}</div></div>", unsafe_allow_html=True)
-        with cc[1]:
-            evidence(L("info"), typ_plain(f["key"], lang), f["evidence"], f["basis"], key=f"ev_{f['key']}")
-        with cc[2]:
-            if EDIT and st.button(f"❌ {L('remove')}", key=f"rm_{f['key']}", use_container_width=True):
-                ss.disabled.add(f["key"]); st.rerun()
-    if removed:
-        with st.expander(f"🗑️ {L('removed_title')}  ({len(removed)})"):
-            for f in removed:
-                rc = st.columns([0.8, 0.2])
-                rc[0].markdown(f"{f['icon']} {typ_title(f['key'], lang, f['title'])}")
-                if EDIT and rc[1].button(f"↩️ {L('restore')}", key=f"rs_{f['key']}", use_container_width=True):
-                    ss.disabled.discard(f["key"]); st.rerun()
+    if panel("crime_findings", f"{IC['typology']} {L('crime_title')} — {len(active)} · {L('crime_note')}"):
+        for f in active:
+            col = {"High": t["red"], "Medium": t["amber"], "Low": t["green"]}[f["level"]]
+            cc = st.columns([0.72, 0.14, 0.14])
+            with cc[0]:
+                st.markdown(
+                    f"<div class='find' style='border-left-color:{col}'>"
+                    f"<div class='ttl'>{f['icon']} {typ_title(f['key'], lang, f['title'])} "
+                    f"<span class='pill pill-{f['level']}'>{f['level']}</span> "
+                    f"<span class='pill' style='background:{t['blue']}22;color:{t['blue']};border:1px solid {t['blue']}66'>{L('conf')}: {f['confidence']}</span></div>"
+                    f"<div class='why'>{typ_plain(f['key'], lang)}</div></div>", unsafe_allow_html=True)
+            with cc[1]:
+                evidence(L("info"), typ_plain(f["key"], lang), f["evidence"], f["basis"], key=f"ev_{f['key']}")
+            with cc[2]:
+                if EDIT and st.button(f"❌ {L('remove')}", key=f"rm_{f['key']}", use_container_width=True):
+                    ss.disabled.add(f["key"]); st.rerun()
+        if removed:
+            with st.expander(f"🗑️ {L('removed_title')}  ({len(removed)})"):
+                for f in removed:
+                    rc = st.columns([0.8, 0.2])
+                    rc[0].markdown(f"{f['icon']} {typ_title(f['key'], lang, f['title'])}")
+                    if EDIT and rc[1].button(f"↩️ {L('restore')}", key=f"rs_{f['key']}", use_container_width=True):
+                        ss.disabled.discard(f["key"]); st.rerun()
 
 # ---- Risk ----
 elif sec == "risk":
     rc1, rc2 = st.columns([0.34, 0.66])
     with rc1:
-        chart_header(L("risk_overall"), "risk_gauge")
-        st.plotly_chart(charts.risk_gauge(score, band, t), use_container_width=True, config=PLOTLY_CFG, key="g2")
-        with st.popover(f"ⓘ {L('risk_how')}"):
-            st.write(L("risk_how_txt"))
+        if not ss.hide_risk:
+            chart_header(L("risk_overall"), "risk_gauge")
+            st.plotly_chart(charts.risk_gauge(score, band, t), use_container_width=True, config=PLOTLY_CFG, key="g2")
+            with st.popover(f"ⓘ {L('risk_how')}"):
+                st.write(L("risk_how_txt"))
     with rc2:
-        chart_header(L("risk_contrib"), "risk_contrib")
-        comps = [dict(title=typ_title(f["key"], lang, f["title"]), level=f["level"],
-                      confidence=f["confidence"], weight=f["weight"]) for f in active]
-        if comps:
-            st.plotly_chart(charts.risk_components(comps, t), use_container_width=True, config=PLOTLY_CFG, key="rcc")
-    st.markdown(f"##### 💡 {L('risk_meaning')}")
-    for f in active:
-        with st.expander(f"{f['icon']} {typ_title(f['key'], lang, f['title'])} · +{f['weight']} ({f['level']})"):
-            st.write(typ_plain(f["key"], lang))
-            st.caption(f["basis"])
-    st.markdown(f"##### 🏦 {L('acct_cp_risk')}")
-    ar = pd.DataFrame([{L("account"): a["account"], "Type": "Account", "Score": a["risk"], "Band": a["band"]} for a in R["accounts"]] +
-                      [{L("account"): n, "Type": v["role"], "Score": v["score"], "Band": v["band"]}
-                       for n, v in sorted(R["entity_risk"].items(), key=lambda x: -x[1]["score"])[:8]])
-    st.dataframe(ar, use_container_width=True, hide_index=True,
-                 column_config={"Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%d")})
+        if panel("risk_contrib", L("risk_contrib"), "risk_contrib"):
+            comps = [dict(title=typ_title(f["key"], lang, f["title"]), level=f["level"],
+                          confidence=f["confidence"], weight=f["weight"]) for f in active]
+            if comps:
+                st.plotly_chart(charts.risk_components(comps, t), use_container_width=True, config=PLOTLY_CFG, key="rcc")
+    if panel("risk_meaning", f"💡 {L('risk_meaning')}"):
+        for f in active:
+            with st.expander(f"{f['icon']} {typ_title(f['key'], lang, f['title'])} · +{f['weight']} ({f['level']})"):
+                st.write(typ_plain(f["key"], lang))
+                st.caption(f["basis"])
+    if panel("acct_cp_risk", f"🏦 {L('acct_cp_risk')}"):
+        ar = pd.DataFrame([{L("account"): a["account"], "Type": "Account", "Score": a["risk"], "Band": a["band"]} for a in R["accounts"]] +
+                          [{L("account"): n, "Type": v["role"], "Score": v["score"], "Band": v["band"]}
+                           for n, v in sorted(R["entity_risk"].items(), key=lambda x: -x[1]["score"])[:8]])
+        st.dataframe(ar, use_container_width=True, hide_index=True,
+                     column_config={"Score": st.column_config.ProgressColumn("Score", min_value=0, max_value=100, format="%d")})
 
 # ---- Transactions ----
 elif sec == "txns":
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown(f"##### ⬇ {L('top10_in')}")
-        st.dataframe(pd.DataFrame([{L("col_date"): x["date"].strftime("%d %b %y"), L("col_cp"): x["counterparty"],
-                                    L("col_method"): x["method"].title(), L("col_amount"): analytics.money_full(x["amount"])}
-                                   for x in R["top_in"]]), use_container_width=True, hide_index=True)
+        if panel("top10_in", f"⬇ {L('top10_in')}"):
+            st.dataframe(pd.DataFrame([{L("col_date"): x["date"].strftime("%d %b %y"), L("col_cp"): x["counterparty"],
+                                        L("col_method"): x["method"].title(), L("col_amount"): analytics.money_full(x["amount"])}
+                                       for x in R["top_in"]]), use_container_width=True, hide_index=True)
     with c2:
-        st.markdown(f"##### ⬆ {L('top10_out')}")
-        st.dataframe(pd.DataFrame([{L("col_date"): x["date"].strftime("%d %b %y"), L("col_cp"): x["counterparty"],
-                                    L("col_method"): x["method"].title(), L("col_amount"): analytics.money_full(x["amount"])}
-                                   for x in R["top_out"]]), use_container_width=True, hide_index=True)
-    st.markdown(f"##### 🧾 {L('all_txns')}")
-    full = d[analytics.EVID_COLS].copy(); full["date"] = full["date"].dt.strftime("%Y-%m-%d")
-    st.dataframe(full, use_container_width=True, hide_index=True, height=420)
-    st.download_button(f"⬇ {L('download_csv')}", d[loader.export_columns(d)].to_csv(index=False).encode(),
-                       "filtered_transactions.csv", "text/csv")
+        if panel("top10_out", f"⬆ {L('top10_out')}"):
+            st.dataframe(pd.DataFrame([{L("col_date"): x["date"].strftime("%d %b %y"), L("col_cp"): x["counterparty"],
+                                        L("col_method"): x["method"].title(), L("col_amount"): analytics.money_full(x["amount"])}
+                                       for x in R["top_out"]]), use_container_width=True, hide_index=True)
+    if panel("all_txns", f"🧾 {L('all_txns')}"):
+        full = d[analytics.EVID_COLS].copy(); full["date"] = full["date"].dt.strftime("%Y-%m-%d")
+        st.dataframe(full, use_container_width=True, hide_index=True, height=420)
+        st.download_button(f"⬇ {L('download_csv')}", d[loader.export_columns(d)].to_csv(index=False).encode(),
+                           "filtered_transactions.csv", "text/csv")
 
 # ---- Chat ----
 elif sec == "chat":

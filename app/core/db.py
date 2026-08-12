@@ -31,7 +31,7 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "aml.db"))
 
 PBKDF2_ITERS = 200_000
-STATE_VERSION = 1
+STATE_VERSION = 2
 TOKEN_TTL_HOURS = 24  # "stay logged in" cookie lifetime
 
 
@@ -289,6 +289,9 @@ def serialize_state(ss) -> tuple[str, str]:
         "cp_next_id": ss.get("cp_next_id", 1),
         "disabled": sorted(ss.get("disabled") or []),
         "kpi_hidden": sorted(ss.get("kpi_hidden") or []),
+        "hidden_charts": sorted(ss.get("hidden_charts") or []),
+        "hidden_tabs": sorted(ss.get("hidden_tabs") or []),
+        "hide_risk": bool(ss.get("hide_risk", False)),
         "bluf_override": ss.get("bluf_override", ""),
         "analyst_note": ss.get("analyst_note", ""),
         "chat": ss.get("chat") or [],
@@ -308,6 +311,9 @@ def restore_state(ss, js: str) -> None:
     ss["cp_next_id"] = s.get("cp_next_id", 1)
     ss["disabled"] = set(s.get("disabled") or [])
     ss["kpi_hidden"] = set(s.get("kpi_hidden") or [])
+    ss["hidden_charts"] = set(s.get("hidden_charts") or [])
+    ss["hidden_tabs"] = set(s.get("hidden_tabs") or [])
+    ss["hide_risk"] = bool(s.get("hide_risk", False))
     ss["bluf_override"] = s.get("bluf_override", "")
     ss["analyst_note"] = s.get("analyst_note", "")
     ss["chat"] = s.get("chat") or []
