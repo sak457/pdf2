@@ -255,7 +255,8 @@ def cp_lookup_panel(key):
     (read-only). Uses the global CP_CARDS computed for the current scope."""
     st.markdown(f"**🪪 {L('lookup_title')}**")
     opts = {}
-    for c in sorted(CP_CARDS, key=lambda c: c["name"].lower()):
+    # POI (the subject) first, searchable by any of its accounts or its name
+    for c in [POI_CARD] + sorted(CP_CARDS, key=lambda c: c["name"].lower()):
         for a in [x.strip() for x in (c["account"] or "").split("|") if x.strip()]:
             opts.setdefault(f"{a} — {c['name']}", c)
         opts.setdefault(c["name"], c)
@@ -415,6 +416,14 @@ band_c = {"High": t["red"], "Medium": t["amber"], "Low": t["green"]}[band]
 CP_AGG = analytics.counterparty_aggregates(d)
 reconcile_cp(CP_AGG)
 CP_CARDS = [cp_card(g, CP_AGG) for g in ss.cp_groups if any(m in CP_AGG for m in g["members"])]
+
+# The POI (subject) as a card: its "account" is EVERY POI account, so hovering
+# the POI node in link analysis and looking it up shows all of them (not empty).
+_poi_accts = sorted(set(a for row in d.accounts for a in row))
+POI_CARD = dict(id=-1, members=["POI"], name=ss.poi["name"], tclass="POI", type="POI",
+                account=" | ".join(_poi_accts), functions="", osint=False,
+                total_in=R["kpis"]["total_in"], total_out=R["kpis"]["total_out"],
+                total=R["kpis"]["total_in"] + R["kpis"]["total_out"])
 
 # --------------------------------------------------------------------------- #
 #  Brand rail
@@ -899,6 +908,7 @@ elif sec == "net":
         st.markdown(f"<div class='card' style='padding:10px 14px'>{chips}</div>", unsafe_allow_html=True)
         st.caption("🖱️ " + L("net_help"))
         cp_by_member = {m: c for c in CP_CARDS for m in c["members"]}
+        cp_by_member["POI"] = POI_CARD   # POI node hover → card with all POI accounts
 
         # filter the graph to the transactions between two chosen nodes
         u = network.node_universe(d)

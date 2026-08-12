@@ -14,7 +14,7 @@ import html
 from .analytics import money
 from .i18n import T
 
-ICON = {"Company": "🏢", "Person": "👤", "Unknown": "❓"}
+ICON = {"Company": "🏢", "Person": "👤", "Unknown": "❓", "POI": "🎯"}
 MONO = "'JetBrains Mono',ui-monospace,Menlo,monospace"
 
 
