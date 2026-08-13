@@ -12,6 +12,7 @@ PowerPoint export (with optional template upload).
 from __future__ import annotations
 
 import base64
+import gzip
 import os
 import sys
 
@@ -57,6 +58,9 @@ def _init():
     s.setdefault("bluf_edit", False)
     s.setdefault("cp_groups", [])
     s.setdefault("cp_next_id", 1)
+    s.setdefault("attachments", [])
+    s.setdefault("att_next_id", 1)
+    s.setdefault("att_uploader_seq", 0)
     s.setdefault("db_session_id", None)
     s.setdefault("last_saved_hash", None)
     s.setdefault("last_upload_id", None)
@@ -100,18 +104,18 @@ def kpi(col, icon, label, value, sub, color):
 
 def panel(el_id, title, info_key=None, level=5):
     """Header for a hideable chart/table. Returns True when the body should
-    render (i.e. the element is not hidden). Admins get a 🙈 hide button and an
-    optional ⓘ info popover; the hidden set is persisted with the session."""
+    render (i.e. the element is not hidden). Hiding is controlled centrally from
+    the Display panel; an optional ⓘ info popover shows alongside the title."""
     if el_id in ss.hidden_charts:
         return False
-    c1, c2, c3 = st.columns([0.86, 0.07, 0.07])
-    c1.markdown(f"{'#' * level} {title}")
     if info_key:
+        c1, c2 = st.columns([0.93, 0.07])
+        c1.markdown(f"{'#' * level} {title}")
         with c2.popover("ⓘ", use_container_width=True):
             st.markdown(f"**{L('info')}**")
             st.write(info_text(info_key, lang))
-    if EDIT and c3.button("🙈", key=f"hide_{el_id}", help=L("hide_el"), use_container_width=True):
-        ss.hidden_charts.add(el_id); st.rerun()
+    else:
+        st.markdown(f"{'#' * level} {title}")
     return True
 
 
@@ -173,12 +177,13 @@ def cp_card(g, agg):
 # --------------------------------------------------------------------------- #
 WORK_KEYS = ["poi", "poi_edit", "nodes", "analyst_note", "bluf_override", "df",
              "data_name", "disabled", "chat", "tmpl", "kpi_hidden", "bluf_edit",
-             "cp_groups", "cp_next_id", "hidden_charts", "hidden_tabs", "hide_risk"]
+             "cp_groups", "cp_next_id", "hidden_charts", "hidden_tabs", "hide_risk",
+             "attachments", "att_next_id"]
 WIDGET_PREFIXES = ("cpn_", "cpa_", "cpt_", "cpo_", "cpf_", "cps_", "kp_", "rm_", "rs_", "ev_",
-                   "hide_", "cpin_", "cpout_", "dt_", "dc_", "dk_")
+                   "hide_", "cpin_", "cpout_", "dt_", "dc_", "dk_", "attdl_", "attrm_", "files_up_")
 WIDGET_KEYS = {"bluf_ta", "cp_merge_sel", "node_pick", "na", "nb", "np", "navseg",
                "cp_flow_sel", "cp_sort_sel", "cp_osint_sel", "cp_desc_sel", "focusnode",
-               "cp_search", "cp_type_sel", "disp_risk_chk"}
+               "cp_search", "cp_type_sel", "disp_risk_chk", "files_up"}
 
 
 def autosave():
@@ -556,7 +561,7 @@ SECTIONS = [("flow", IC["flow"], L("sec_flow")), ("accounts", IC["accounts"], L(
             ("cp", IC["counterparties"], L("sec_cp")), ("net", IC["network"], L("sec_network")),
             ("crime", IC["typology"], L("sec_crime")), ("risk", IC["riskdash"], L("sec_risk")),
             ("txns", IC["transactions"], L("sec_txns")), ("chat", "💬", L("sec_chat")),
-            ("export", IC["export"], L("sec_export"))]
+            ("files", "📎", L("sec_files")), ("export", IC["export"], L("sec_export"))]
 SEC_LABEL = {sid: f"{ic} {nm}" for sid, ic, nm in SECTIONS}
 CHART_REG = [
     ("flow", [("sankey", L("sankey_title")), ("acct_throughput", L("acct_throughput")),
@@ -1023,6 +1028,46 @@ elif sec == "chat":
             st.rerun()
     else:
         st.caption(f"🔒 {L('viewer_readonly')}")
+
+# ---- Files / documents ----
+elif sec == "files":
+    st.markdown(f"##### 📎 {L('files_title')}")
+    st.caption(L("files_note"))
+    if EDIT:
+        # Dynamic key: bumping the seq resets the uploader after a successful add,
+        # so staged files don't get re-added (which would undo a later removal).
+        ups = st.file_uploader(L("files_upload"), accept_multiple_files=True,
+                               key=f"files_up_{ss.att_uploader_seq}")
+        if ups:
+            have = {(a["name"], a["size"]) for a in ss.attachments}
+            added = 0
+            for f in ups:
+                raw = f.read()
+                if (f.name, len(raw)) in have:
+                    continue
+                ss.attachments.append(dict(
+                    id=ss.att_next_id, name=f.name, size=len(raw),
+                    mime=f.type or "application/octet-stream",
+                    gz=base64.b64encode(gzip.compress(raw)).decode()))
+                ss.att_next_id += 1
+                have.add((f.name, len(raw))); added += 1
+            if added:
+                ss.att_uploader_seq += 1
+                st.success(L("files_added").format(n=added)); st.rerun()
+    if not ss.attachments:
+        st.caption(L("files_none"))
+    else:
+        for a in list(ss.attachments):
+            fc = st.columns([0.56, 0.22, 0.22])
+            kb = a["size"] / 1024
+            sz = f"{kb/1024:.1f} MB" if kb >= 1024 else f"{kb:.0f} KB"
+            fc[0].markdown(f"📄 **{a['name']}**  \n<span class='muted'>{sz}</span>", unsafe_allow_html=True)
+            raw = gzip.decompress(base64.b64decode(a["gz"]))
+            fc[1].download_button(f"⬇ {L('files_download')}", raw, a["name"], a["mime"],
+                                  key=f"attdl_{a['id']}", use_container_width=True)
+            if EDIT and fc[2].button(f"🗑️ {L('files_remove')}", key=f"attrm_{a['id']}", use_container_width=True):
+                ss.attachments = [x for x in ss.attachments if x["id"] != a["id"]]
+                st.rerun()
 
 # ---- Export ----
 elif sec == "export":

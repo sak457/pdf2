@@ -292,6 +292,8 @@ def serialize_state(ss) -> tuple[str, str]:
         "hidden_charts": sorted(ss.get("hidden_charts") or []),
         "hidden_tabs": sorted(ss.get("hidden_tabs") or []),
         "hide_risk": bool(ss.get("hide_risk", False)),
+        "attachments": ss.get("attachments") or [],
+        "att_next_id": ss.get("att_next_id", 1),
         "bluf_override": ss.get("bluf_override", ""),
         "analyst_note": ss.get("analyst_note", ""),
         "chat": ss.get("chat") or [],
@@ -314,6 +316,8 @@ def restore_state(ss, js: str) -> None:
     ss["hidden_charts"] = set(s.get("hidden_charts") or [])
     ss["hidden_tabs"] = set(s.get("hidden_tabs") or [])
     ss["hide_risk"] = bool(s.get("hide_risk", False))
+    ss["attachments"] = s.get("attachments") or []
+    ss["att_next_id"] = s.get("att_next_id", 1)
     ss["bluf_override"] = s.get("bluf_override", "")
     ss["analyst_note"] = s.get("analyst_note", "")
     ss["chat"] = s.get("chat") or []
